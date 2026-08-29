@@ -2452,10 +2452,12 @@ function viewStats(root){
   var count=0;
 
   var showAllTypes = hourMetric==='all';
-  var dotTypes = showAllTypes ? ['feed','solid','poop','med','temp','dental','vaccine','growth'] : [hourMetric];
+  /* 「全部」只畫使用者在設定裡保留的類別 */
+  var picked=PREFS.types.filter(function(k){return STAT_TYPES[k] && k!=='all';});
+  var dotTypes = showAllTypes ? picked.filter(function(k){return k!=='sleep';}) : [hourMetric];
 
   /* 睡眠畫成長條，跨夜自動切成兩段接在隔天頂端 */
-  if(hourMetric==='sleep' || showAllTypes){
+  if(hourMetric==='sleep' || (showAllTypes && picked.indexOf('sleep')>=0)){
     kidRecords().filter(function(r){return r.type==='sleep';}).forEach(function(r){
       var s0=new Date(r.startAt), e0=r.endAt?new Date(r.endAt):new Date();
       var cur=new Date(s0);
@@ -2509,12 +2511,13 @@ function viewStats(root){
   var hbox=el('div',null,gg);
   hbox.style.cssText='width:100%;overflow:hidden';
   hc.appendChild(hbox);
-  if(count && showAllTypes){
+  if(count && showAllTypes && picked.length>1){
+    var LEGC={sleep:'#7C6BB0',feed:'#EE6983',solid:'#E0913C',poop:'#A9784B',
+              med:'#4C9AA8',temp:'#D2523F'};
     var lgd=el('div','legend');
-    lgd.innerHTML=[['#7C6BB0','睡眠'],['#EE6983','餵奶'],['#E0913C','副食品'],['#A9784B','大便'],
-                   ['#4C9AA8','用藥'],['#D2523F','體溫'],['#4F7FBF','看牙'],['#8A6FBF','疫苗'],
-                   ['#5B8C5A','身高體重']]
-      .map(function(o){return '<span><i style="background:'+o[0]+'"></i>'+o[1]+'</span>';}).join('');
+    lgd.innerHTML=picked.map(function(k){
+      return '<span><i style="background:'+(LEGC[k]||'#850E35')+'"></i>'+STAT_TYPES[k].lb+'</span>';
+    }).join('');
     hc.appendChild(lgd);
   }
   hc.appendChild(el('div','bandNote',
