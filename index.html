@@ -548,31 +548,37 @@ var CFG = {
   secret: localStorage.getItem('bl_secret')||'',
   who: localStorage.getItem('bl_who')||''
 };
-function api(payload){
+function api(payload,timeoutMs){
   payload.secret = CFG.secret;
+  var ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+  var timer = setTimeout(function(){ if(ctrl) ctrl.abort(); }, timeoutMs||20000);
   return fetch(CFG.url,{
     method:'POST', redirect:'follow',
     headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify(payload)
+    body:JSON.stringify(payload),
+    signal: ctrl?ctrl.signal:undefined
   }).then(function(r){
     return r.text().then(function(txt){
       var j;
       try{ j=JSON.parse(txt); }
       catch(e){
-        /* 回傳的不是 JSON，通常是 Google 的登入頁或錯誤頁 */
         if(/accounts\.google\.com|使用者登入|Sign in/i.test(txt))
           throw new Error('Google 要求登入。請確認部署設定的「具有存取權的使用者」是「所有人」');
         if(/Script function not found|找不到指令碼函式/i.test(txt))
           throw new Error('找不到程式函式，請重新部署一次 Apps Script');
         if(/Exception|TypeError|ReferenceError/i.test(txt))
-          throw new Error('Apps Script 執行錯誤，請到 Apps Script 的「執行項目」看詳細訊息');
-        if(r.status>=500) throw new Error('Google 伺服器忙碌（'+r.status+'），稍後會自動重試');
+          throw new Error('Apps Script 執行錯誤，請到 Apps Script 的「執行項目」查看');
+        if(r.status>=500) throw new Error('Google 伺服器忙碌（'+r.status+'）');
         throw new Error('伺服器回應不是資料格式（HTTP '+r.status+'）');
       }
       if(!j.ok) throw new Error(j.error||'伺服器錯誤');
       return j;
     });
-  });
+  }).catch(function(e){
+    if(e && e.name==='AbortError') throw new Error('連線逾時，請檢查網路');
+    throw e;
+  }).then(function(v){ clearTimeout(timer); return v; },
+          function(e){ clearTimeout(timer); throw e; });
 }
 
 /* 照片快取（存在這台手機，省流量） */
@@ -613,26 +619,53 @@ function parseData(r){ try{ return r.data?JSON.parse(r.data):{}; }catch(e){ retu
 function setSync(state){
   var d=$('#syncDot'); d.className=state||'';
 }
+/* 本機快取：同步失敗或還沒回來時，先顯示上次的資料 */
+function cacheSave(){
+  try{
+    localStorage.setItem('bl_cache',JSON.stringify({
+      t:Date.now(), children:S.children, records:S.records, handoff:S.handoff
+    }));
+  }catch(e){}
+}
+function cacheLoad(){
+  try{
+    var c=JSON.parse(localStorage.getItem('bl_cache')||'null');
+    if(!c||!c.children) return false;
+    S.children=c.children||[]; S.records=c.records||[]; S.handoff=c.handoff||[];
+    if(!S.kid || !kid()) S.kid=(S.children[0]||{}).id||'';
+    S.loaded=true;
+    return true;
+  }catch(e){ return false; }
+}
+
 function pull(silent,retry){
   setSync('busy');
   return api({action:'getAll'}).then(function(j){
     S.children=alive(j.children); S.records=alive(j.records); S.handoff=alive(j.handoff);
     if(!S.kid || !kid()) S.kid=(S.children[0]||{}).id||'';
-    S.loaded=true; setSync(''); render();
+    S.loaded=true; setSync(''); cacheSave(); render();
   }).catch(function(e){
-    if(!retry && /忙碌|不是資料格式|Failed to fetch|NetworkError|Load failed/i.test(e.message)){
+    if(!retry && /忙碌|不是資料格式|逾時|Failed to fetch|NetworkError|Load failed/i.test(e.message)){
       return new Promise(function(res){ setTimeout(res,2500); }).then(function(){
         return pull(silent,true);
       });
     }
-    setSync('err'); if(!silent) toast('同步失敗：'+e.message);
+    setSync('err');
+    /* 同步失敗就用本機快取撐著，不要卡在空白畫面 */
+    if(!S.loaded && cacheLoad()){
+      render();
+      if(!silent) toast('離線顯示上次的資料（'+e.message+'）');
+      return;
+    }
+    if(!silent) toast('同步失敗：'+e.message);
+    render();
   });
 }
 function push(sheet,item){
   setSync('busy');
   var act = sheet==='records'?'saveRecord':sheet==='children'?'saveChild':'saveHandoff';
   return api({action:act,item:item}).then(function(j){
-    setSync(''); return j.item;
+    setSync(''); setTimeout(cacheSave,0); return j.item;
   }).catch(function(e){ setSync('err'); toast('儲存失敗：'+e.message); throw e; });
 }
 function removeItem(sheet,id){
@@ -2869,7 +2902,8 @@ $('#lightbox').onclick=function(){ $('#lightbox').classList.remove('on'); };
 function showApp(){
   $('#setup').classList.remove('on');
   ['#top','#main','#tabs','#fab'].forEach(function(s){$(s).classList.remove('hide');});
-  pull();
+  if(cacheLoad()) render();     /* 先畫上次的資料，再背景同步 */
+  pull(true);
 }
 $('#suGo').onclick=function(){
   var u=$('#suUrl').value.trim(), s=$('#suSecret').value.trim(), w=$('#suWho').value.trim();
