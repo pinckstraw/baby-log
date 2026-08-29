@@ -1556,6 +1556,19 @@ function viewVaccine(root){
     else upcoming.push(item);
   });
 
+  /* 自行輸入的疫苗（不在標準時程裡）也列進已完成 */
+  kidRecords().filter(function(r){return r.type==='vaccine';}).forEach(function(r){
+    var d=parseData(r);
+    if(!d.name) return;
+    if(VACCINES.some(function(v){return v.n===d.name;})) return;
+    doneList.push({
+      v:{n:d.name, custom:true, note:d.place||''},
+      dueDate:new Date(r.startAt),
+      done:{at:r.startAt,rec:r}
+    });
+  });
+  doneList.sort(function(a,b){ return new Date(b.done.at)-new Date(a.done.at); });
+
   var head=el('div','card');
   head.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center">'+
     '<div><div style="font-size:12px;color:var(--mute)">'+esc(k.name)+'　'+ageText(k.birthdate)+'</div>'+
@@ -1577,8 +1590,12 @@ function viewVaccine(root){
       var badge = kind==='due' ? '<span class="badge due">該打了</span>'
         : kind==='soon' ? '<span class="badge soon">'+(it.dueDate.getFullYear())+'/'+(it.dueDate.getMonth()+1)+'/'+it.dueDate.getDate()+'</span>'
         : '';
-      info.innerHTML='<div class="nm">'+esc(it.v.n)+badge+(it.v.self?'<span class="badge self">自費</span>':'')+'</div>'+
-        '<div class="mt">'+(it.done?'已於 '+new Date(it.done.at).toLocaleDateString('zh-TW')+' 接種':
+      info.innerHTML='<div class="nm">'+esc(it.v.n)+badge+
+        (it.v.self?'<span class="badge self">自費</span>':'')+
+        (it.v.custom?'<span class="badge self">自行輸入</span>':'')+'</div>'+
+        '<div class="mt">'+(it.done?
+          ('已於 '+new Date(it.done.at).toLocaleDateString('zh-TW')+' 接種'+
+            (it.v.custom&&it.v.note?'・'+esc(it.v.note):'')) :
           ('滿 '+it.v.m+' 個月'+(it.v.note?'・'+esc(it.v.note):'')))+'</div>';
       row.appendChild(chk); row.appendChild(info);
       row.onclick=function(){
@@ -1596,7 +1613,7 @@ function viewVaccine(root){
   }
   block('可以接種了',dueList,'due');
   block('接下來',upcoming.slice(0,8),'soon');
-  block('已完成',doneList.slice().reverse(),'done');
+  block('已完成',doneList,'done');
 
   root.appendChild(el('div','bandNote','時程依衛福部疾管署現行兒童預防接種時程（114年版）整理，含常見自費項目。實際劑次與間隔請以兒童健康手冊及醫師安排為準。滿 6 個月起每年流感疫苗需另外接種。'));
 }
