@@ -116,6 +116,8 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
   padding:12px 14px;margin-bottom:10px;border-left:4px solid #4F7FBF;
   box-shadow:0 2px 10px rgba(133,14,53,.06)}
 .careCard.vac{border-left-color:#8A6FBF}
+.careCard.poop{border-left-color:#A9784B}
+.careCard.poop .ttl{color:#8A5F35}
 .careCard.late{border-left-color:#D2523F;background:#FFF4F2}
 .careCard .ic{font-size:22px;flex:none}
 .careCard .ttl{font-weight:800;font-size:14.5px;color:#2F5C91}
@@ -1451,7 +1453,10 @@ function agoShort(ms){
   if(ms==null) return '—';
   var m=Math.round(ms/60000);
   if(m<60) return m+'分';
-  return Math.floor(m/60)+'時'+pad(m%60);
+  var h=Math.floor(m/60);
+  if(h<24) return h+'時'+pad(m%60);
+  var d=Math.floor(h/24);
+  return d+'天'+(h%24)+'時';
 }
 function todaySleepMs(){
   var ms=0, d0=new Date(); d0.setHours(0,0,0,0);
@@ -1503,8 +1508,8 @@ function statValue(key){
       var fv=kidRecords().filter(function(r){return r.type==='temp'&&isFever(r);})[0];
       if(!fv) return '無';
       var ms=Date.now()-new Date(fv.startAt);
-      var dy=Math.floor(ms/86400000);
-      return dy>0 ? dy+'天' : agoShort(ms);
+      if(ms>48*3600000) return '無';          /* 超過兩天就顯示無 */
+      return agoShort(ms);
     }
     case 'tempMax': {
       var vs=of('temp').map(function(r){return parseFloat(parseData(r).value)||0;}).filter(Boolean);
@@ -1575,6 +1580,17 @@ function vaccineDue(){
   return {soon:soon, late:late};
 }
 
+/* 大便提醒：超過 3 天沒有紀錄就在首頁提示 */
+function poopDue(){
+  var recs=kidRecords().filter(function(r){return r.type==='poop';});
+  if(!recs.length) return null;              /* 完全沒記過就不吵 */
+  var last=recs[0];
+  var ms=Date.now()-new Date(last.startAt);
+  var days=Math.floor(ms/86400000);
+  if(days<3) return null;
+  return {days:days, at:last.startAt, hours:Math.floor(ms/3600000)};
+}
+
 /* 牙醫回診提醒：只認「最近一次看牙」所填的下次回診日期。
    再看一次牙就會被新的取代；最新那次沒填下次日期＝目前沒有預約。 */
 function dentalDue(){
@@ -1639,6 +1655,23 @@ function viewToday(root){
         t.textContent=durShort(nurseTotals().total);
       },1000);
     }
+  }
+
+  /* 大便提醒（超過 3 天沒紀錄） */
+  var pd2=poopDue();
+  if(pd2){
+    var severe=pd2.days>=5;
+    var pcard=el('div','careCard poop'+(severe?' late':''));
+    var pdt=new Date(pd2.at);
+    pcard.innerHTML='<span class="ic">💩</span>'+
+      '<div style="flex:1;min-width:0">'+
+      '<div class="ttl">已經 '+pd2.days+' 天沒有大便紀錄</div>'+
+      '<div class="sub">上次是 '+(pdt.getMonth()+1)+'/'+pdt.getDate()+' '+hhmm(pd2.at)+'</div>'+
+      (severe?'<div class="sub">超過 5 天，必要時可諮詢兒科醫師</div>':'')+'</div>';
+    var pbtn=el('button','careBtn','記錄');
+    pbtn.onclick=function(e){ e.stopPropagation(); openRecordForm('poop'); };
+    pcard.appendChild(pbtn);
+    root.appendChild(pcard);
   }
 
   /* 疫苗提醒（一個月內／逾期） */
@@ -1950,22 +1983,36 @@ function viewTemp(root){
     return;
   }
 
-  /* 距上次發燒 */
+  /* 距上次發燒 ＋ 退燒滿 24 小時判定（幼稚園入園常用） */
   var lastFever=all.filter(function(p){return p.fever;})[0];
   var head=el('div','card');
-  var fvTxt='沒有發燒紀錄 👏', fvSub='';
-  if(lastFever){
+  if(!lastFever){
+    head.innerHTML='<div style="font-size:12px;color:var(--mute)">上次發燒</div>'+
+      '<div style="font-size:24px;font-weight:900;color:#5B8C5A;margin-top:2px">沒有發燒紀錄 👏</div>';
+  }else{
     var ms=Date.now()-new Date(lastFever.at);
+    var hrs=ms/3600000;
     var dy=Math.floor(ms/86400000), hr=Math.floor(ms/3600000)%24;
-    fvTxt = dy>0 ? dy+' 天 '+hr+' 小時' : hr+' 小時';
-    fvSub = new Date(lastFever.at).toLocaleDateString('zh-TW')+' '+hhmm(lastFever.at)+
-      '　'+lastFever.v.toFixed(1)+'°C'+(lastFever.spot?'（'+lastFever.spot+'）':'');
+    var elapsed = dy>0 ? dy+' 天 '+hr+' 小時' : Math.floor(hrs)+' 小時 '+Math.floor(ms/60000%60)+' 分';
+    var ok=hrs>=24;
+    var okColor=ok?'#5B8C5A':'#D2523F';
+    var okText=ok?'✓ 退燒已滿 24 小時':'還差 '+Math.ceil(24-hrs)+' 小時滿 24 小時';
+    var clearAt=new Date(new Date(lastFever.at).getTime()+24*3600000);
+    head.style.borderLeft='4px solid '+okColor;
+    head.innerHTML='<div style="font-size:15px;font-weight:800;color:'+okColor+'">'+okText+'</div>'+
+      (ok?'':'<div style="font-size:12.5px;color:var(--mute);margin-top:3px">預計 '+
+        (clearAt.getMonth()+1)+'/'+clearAt.getDate()+' '+hhmm(clearAt.toISOString())+' 屆滿</div>')+
+      '<div style="height:1px;background:var(--line);margin:10px 0"></div>'+
+      '<div style="font-size:12px;color:var(--mute)">距上次發燒</div>'+
+      '<div style="font-size:20px;font-weight:900;color:var(--wine);margin-top:1px">'+elapsed+'</div>'+
+      '<div style="font-size:12.5px;color:var(--mute);margin-top:3px">'+
+      new Date(lastFever.at).toLocaleDateString('zh-TW')+' '+hhmm(lastFever.at)+
+      '　'+lastFever.v.toFixed(1)+'°C'+(lastFever.spot?'（'+lastFever.spot+'）':'')+'</div>';
   }
-  head.innerHTML='<div style="font-size:12px;color:var(--mute)">距上次發燒</div>'+
-    '<div style="font-size:26px;font-weight:900;color:'+(lastFever?'var(--wine)':'#5B8C5A')+';margin-top:2px">'+
-    fvTxt+'</div>'+
-    (fvSub?'<div style="font-size:12.5px;color:var(--mute);margin-top:4px">'+esc(fvSub)+'</div>':'');
   root.appendChild(head);
+  if(lastFever && (Date.now()-new Date(lastFever.at))<48*3600000){
+    root.appendChild(el('div','bandNote','幼稚園多要求「退燒滿 24 小時且未服退燒藥」才能入園。這裡是以最後一次量到發燒的時間起算，中間沒量到的空檔不算數，實際仍以園方規定和孩子狀況為準。'));
+  }
 
   /* 區間切換 */
   var pr2=el('div','pillRow');
