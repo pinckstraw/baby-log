@@ -1928,8 +1928,8 @@ function viewToday(root){
       '<span class="ttl"><span class="tem">'+T.em+'</span>睡眠<span class="carry">昨晚</span></span>'+
       (r.by?'<span class="who">'+esc(r.by)+'</span>':'')+'</div>'+
       '<div class="sub tight">'+(ongoing
-        ? hhmm(r.startAt)+' 睡到現在・已 '+durTight(e-s)
-        : hhmm(r.startAt)+'–'+hhmm(r.endAt)+'・共 '+durTight(e-s))+'</div>'+
+        ? '睡眠中…（'+hhmm(r.startAt)+' 起，已 '+dur(e-s)+'）'
+        : '睡了 '+dur(e-s)+'（'+hhmm(r.startAt)+'–'+hhmm(r.endAt)+'）')+'</div>'+
       (r.note?'<div class="note">'+esc(r.note)+'</div>':'');
     body.onclick=function(){ openRecordForm('sleep',r); };
     ev.appendChild(dot); ev.appendChild(body); tl.appendChild(ev);
