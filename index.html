@@ -161,6 +161,8 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 .ev .tem{font-size:19px;line-height:1}
 .ev .sub{font-size:15.5px;color:var(--wine);margin-top:5px;font-weight:600;line-height:1.4}
 .ev .note{font-size:14px;color:#AA5672;margin-top:4px;white-space:pre-wrap;word-break:break-word;line-height:1.45}
+.ev .carry{font-size:10.5px;font-weight:700;color:#7C6BB0;background:#F0EDF7;
+  border-radius:6px;padding:2px 6px;margin-left:5px}
 .ev .who{font-size:11.5px;color:var(--wine);margin-left:auto;flex:none;
   background:var(--cream);border-radius:7px;padding:2px 7px;font-weight:600;opacity:.75}
 .ev img.thumb{width:100%;max-height:210px;object-fit:cover;border-radius:11px;margin-top:8px;background:var(--cream)}
@@ -1817,8 +1819,19 @@ function viewToday(root){
   nav.appendChild(prev); nav.appendChild(lbl); nav.appendChild(next);
   swipe.appendChild(nav);
 
+  /* 跨夜睡眠：在起床這天也補一筆，放在時間軸最前面 */
+  var carry=kidRecords().filter(function(r){
+    if(r.type!=='sleep') return false;
+    var s=new Date(r.startAt);
+    if(dkey(s)===S.day) return false;                 /* 當天入睡的不算 */
+    var e=r.endAt?new Date(r.endAt):new Date();
+    var d0=new Date(S.day+'T00:00:00');
+    var d1=new Date(d0.getTime()+86400000);
+    return e>d0 && s<d1;                              /* 這段睡眠有涵蓋到這一天 */
+  });
+
   var list=recordsOn(S.day);
-  if(!list.length){
+  if(!list.length && !carry.length){
     swipe.appendChild(el('div','empty','<span class="big">🌸</span>這天還沒有紀錄。<br>左右滑動可以切換日期。'));
     root.appendChild(swipe);
     enableSwipe(swipe);
@@ -1826,6 +1839,32 @@ function viewToday(root){
     return;
   }
   var tl=el('div','tl');
+
+  /* 前一晚延續過來的睡眠：顯示整段總時數，不切開算 */
+  carry.forEach(function(r){
+    var T=TYPES.sleep;
+    var s=new Date(r.startAt);
+    var ongoing=!r.endAt;
+    var e=ongoing?new Date():new Date(r.endAt);
+    var total=dur(e-s);
+    var ev=el('div','ev');
+    var dot=el('div','dot',T.em);
+    dot.style.borderColor=T.color;
+    var body=el('div','body');
+    body.style.borderLeft='4px solid '+T.color;
+    body.style.background='#FBF9FD';
+    body.innerHTML='<div class="hd">'+
+      '<span class="tm">'+(ongoing?'—':hhmm(r.endAt))+'</span>'+
+      '<span class="ttl"><span class="tem">'+T.em+'</span>睡眠<span class="carry">前一晚</span></span>'+
+      (r.by?'<span class="who">'+esc(r.by)+'</span>':'')+'</div>'+
+      '<div class="sub">'+(ongoing
+        ? '從前一晚 '+hhmm(r.startAt)+' 睡到現在，已 '+total
+        : '前一晚 '+hhmm(r.startAt)+' 睡到 '+hhmm(r.endAt)+'，共睡 '+total)+'</div>'+
+      (r.note?'<div class="note">'+esc(r.note)+'</div>':'');
+    body.onclick=function(){ openRecordForm('sleep',r); };
+    ev.appendChild(dot); ev.appendChild(body); tl.appendChild(ev);
+  });
+
   list.forEach(function(r){
     var d=parseData(r);
     var T=TYPES[r.type]||{em:'•',lb:r.type,color:'#9A8189'};
@@ -2572,7 +2611,7 @@ function viewStats(root){
   var BARDEF={
     all:   {lb:'每日紀錄筆數',   f:'all',   fmt:function(v){return v;}},
     sleep: {lb:'每日睡眠總時數', f:'sleep', fmt:function(v){return v.toFixed(1);},
-            unit:'單位：小時（跨夜睡眠會依實際落在哪一天分攤）'},
+            unit:'跨夜的睡眠會依實際時間分攤到兩天，所以和卡片上的整段時數不同'},
     feed:  {lb:'每日餵奶次數',   f:'feed',  fmt:function(v){return v;}},
     solid: {lb:'每日副食品次數', f:'solid', fmt:function(v){return v;}},
     poop:  {lb:'每日大便次數',   f:'poop',  fmt:function(v){return v;}},
