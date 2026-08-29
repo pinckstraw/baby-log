@@ -36,7 +36,7 @@ h1,h2,h3{margin:0;font-family:"Noto Serif TC",serif;font-weight:700;letter-spaci
   background:linear-gradient(180deg,var(--wine),#6d0b2c);
   color:#fff;box-shadow:0 2px 14px rgba(133,14,53,.22);
 }
-.topRow{display:flex;align-items:center;gap:10px}
+.topRow{display:flex;align-items:center;gap:7px}
 .kidBtn{
   display:flex;align-items:center;gap:9px;flex:1;min-width:0;
   background:rgba(255,255,255,.13);border-radius:999px;padding:6px 12px 6px 6px;
@@ -46,7 +46,8 @@ h1,h2,h3{margin:0;font-family:"Noto Serif TC",serif;font-weight:700;letter-spaci
 .kidName{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kidAge{font-size:11px;opacity:.75;margin-top:-2px}
 .chev{opacity:.7;font-size:12px;flex:none}
-.iconBtn{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.13);
+mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
+.iconBtn{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.13);
   display:grid;place-items:center;color:#fff;flex:none}
 #syncDot{width:8px;height:8px;border-radius:50%;background:#7ddf9a}
 #syncDot.busy{background:#ffd166;animation:pulse 1s infinite}
@@ -278,6 +279,10 @@ svg.chart{width:100%;display:block;overflow:visible}
       </span>
       <span class="chev">▼</span>
     </button>
+    <button class="iconBtn" id="searchBtn" title="搜尋">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" style="width:18px;height:18px">
+        <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    </button>
     <button class="iconBtn" id="syncBtn" title="同步"><span id="syncDot"></span></button>
     <button class="iconBtn" id="menuBtn">⋯</button>
   </div>
@@ -320,6 +325,7 @@ var TYPES = {
   med:     {em:'💊', lb:'用藥',   color:'#4C9AA8'},
   temp:    {em:'🌡️', lb:'體溫',   color:'#D2523F'},
   growth:  {em:'📏', lb:'身高體重',color:'#5B8C5A'},
+  dental:  {em:'🦷', lb:'看牙齒', color:'#4F7FBF'},
   vaccine: {em:'💉', lb:'疫苗',   color:'#8A6FBF'}
 };
 
@@ -332,6 +338,7 @@ var QUICKS = {
   med:     {em:'💊', lb:'用藥'},
   temp:    {em:'🌡️', lb:'體溫'},
   growth:  {em:'📏', lb:'身高體重'},
+  dental:  {em:'🦷', lb:'看牙齒'},
   vaccine: {em:'💉', lb:'疫苗'}
 };
 
@@ -782,6 +789,24 @@ function openRecordForm(type,rec){
       bd.appendChild(el('div','bandNote','三項可以只填其中幾項，之後會自動畫進生長曲線。'));
     }
 
+    if(type==='dental'){
+      bd.appendChild(field('項目',segment(['檢查','塗氟','窩溝封填','補牙','洗牙','拔牙','矯正評估','其他'],
+        d.item||'檢查',function(v){d.item=v;})));
+      var clinic=input('text',d.clinic||'','例如 大安兒童牙醫');
+      clinic.oninput=function(){d.clinic=clinic.value;};
+      var clinicWrap=el('div');
+      var clinicChips=attachTokens(clinic,
+        recentTokens(function(r){ return r.type==='dental' ? parseData(r).clinic : ''; }),
+        function(v){ d.clinic=v; });
+      if(clinicChips) clinicWrap.appendChild(clinicChips);
+      clinicWrap.appendChild(clinic);
+      bd.appendChild(field('診所',clinicWrap));
+      var nextv=input('date',d.next||'');
+      nextv.oninput=function(){d.next=nextv.value;};
+      bd.appendChild(field('下次回診日期',nextv));
+      bd.appendChild(el('div','bandNote','未滿 6 歲每半年可申請一次公費塗氟，填了下次回診日期，疫苗頁會一併提醒。'));
+    }
+
     if(type==='vaccine'){
       var sel=el('select','in');
       sel.appendChild(el('option',null,'請選擇'));
@@ -800,8 +825,14 @@ function openRecordForm(type,rec){
       var vw=el('div'); vw.appendChild(sel); vw.appendChild(other);
       var place=input('text',d.place||'','例如 王小兒科診所');
       place.oninput=function(){d.place=place.value;};
+      var placeWrap=el('div');
+      var placeChips=attachTokens(place,
+        recentTokens(function(r){ return r.type==='vaccine' ? parseData(r).place : ''; }),
+        function(v){ d.place=v; });
+      if(placeChips) placeWrap.appendChild(placeChips);
+      placeWrap.appendChild(place);
       bd.appendChild(field('疫苗',vw));
-      bd.appendChild(field('接種地點',place));
+      bd.appendChild(field('接種地點',placeWrap));
     }
 
     /* 備註（含常用詞快速選單）+ 照片：跟事件一起送出 */
@@ -1012,11 +1043,143 @@ function summary(r){
     case 'med': return d.name ? (d.name+(d.dose?' '+d.dose:'')+(d.reason?'（'+d.reason+'）':'')) : '';
     case 'temp': return (d.value||'')+' °C'+(d.spot?'・'+d.spot:'');
     case 'growth': return [d.height?'身高 '+d.height+' cm':'',d.weight?'體重 '+d.weight+' kg':'',d.head?'頭圍 '+d.head+' cm':''].filter(Boolean).join('・');
+    case 'dental': return [d.item,d.clinic,d.next?'下次 '+d.next:''].filter(Boolean).join('・');
     case 'vaccine': return (d.name||'疫苗')+(d.place?'・'+d.place:'');
   }
   return '';
 }
 
+/* ============================================================
+   搜尋：涵蓋所有手動輸入的文字
+   ============================================================ */
+function haystack(r){
+  var d=parseData(r), parts=[];
+  parts.push(TYPES[r.type]?TYPES[r.type].lb:r.type);
+  parts.push(r.note||'');
+  parts.push(r.by||'');
+  ['food','accept','method','texture','color','amount','name','dose','reason',
+   'value','spot','height','weight','head','place','item','clinic','next'].forEach(function(k){
+    if(d[k]!=null && d[k]!=='') parts.push(String(d[k]));
+  });
+  parts.push(summary(r));
+  return parts.join(' ').toLowerCase();
+}
+function hl(text,q){
+  var t=esc(text||'');
+  if(!q) return t;
+  var i=t.toLowerCase().indexOf(q.toLowerCase());
+  if(i<0) return t;
+  return t.slice(0,i)+'<mark>'+t.slice(i,i+q.length)+'</mark>'+t.slice(i+q.length);
+}
+function snippet(text,q,len){
+  text=String(text||'');
+  if(!q) return text.slice(0,len||60);
+  var i=text.toLowerCase().indexOf(q.toLowerCase());
+  if(i<0) return text.slice(0,len||60);
+  var s=Math.max(0,i-18);
+  return (s>0?'…':'')+text.slice(s,s+(len||60));
+}
+function openSearch(){
+  var scope={all:false};
+  openSearchSheet(scope);
+}
+function openSearchSheet(scope){
+  openSheet('搜尋',function(bd){
+    var q=input('search','','搜尋備註、藥品、食物、診所、留言…');
+    q.setAttribute('enterkeyhint','search');
+    bd.appendChild(field(null,q));
+
+    var pr=el('div','pillRow');
+    var pAll=el('button','pill'+(scope.all?' on':''),'所有寶寶');
+    pAll.onclick=function(){ scope.all=!scope.all; closeSheet(); setTimeout(function(){openSearchSheet(scope);},160); };
+    if(S.children.length>1) { pr.appendChild(pAll); bd.appendChild(pr); }
+
+    var out=el('div');
+    bd.appendChild(out);
+
+    function run(){
+      var term=q.value.trim();
+      out.innerHTML='';
+      if(term.length<1){
+        out.appendChild(el('div','bandNote','可以搜尋：各類紀錄的備註、副食品內容、體溫、身高體重、診所名稱、疫苗名稱、交接留言，以及紀錄者的名字。'));
+        return;
+      }
+      var lower=term.toLowerCase();
+      var pool=scope.all
+        ? S.records.slice().sort(function(a,b){return new Date(b.startAt)-new Date(a.startAt);})
+        : kidRecords();
+      var hits=pool.filter(function(r){ return haystack(r).indexOf(lower)>=0; });
+      var mhits=S.handoff.filter(function(m){
+        return String(m.text||'').toLowerCase().indexOf(lower)>=0
+          || String(m.by||'').toLowerCase().indexOf(lower)>=0;
+      }).sort(function(a,b){return new Date(b.at)-new Date(a.at);});
+
+      if(!hits.length && !mhits.length){
+        out.appendChild(el('div','empty','<span class="big">🔍</span>找不到「'+esc(term)+'」'));
+        return;
+      }
+
+      if(hits.length){
+        out.appendChild(el('div','secTitle','紀錄　'+hits.length+' 筆'));
+        var c=el('div','card');
+        hits.slice(0,60).forEach(function(r,i){
+          var kidName='';
+          if(scope.all){
+            var kk=S.children.filter(function(x){return x.id===r.childId;})[0];
+            kidName=kk?kk.name+'・':'';
+          }
+          var d=new Date(r.startAt);
+          var row=el('button',null,'');
+          row.style.cssText='display:block;width:100%;text-align:left;padding:10px 2px;'+
+            (i?'border-top:1px solid var(--line)':'');
+          row.innerHTML='<div style="display:flex;gap:8px;align-items:baseline">'+
+            '<span style="flex:none">'+(TYPES[r.type]?TYPES[r.type].em:'•')+'</span>'+
+            '<span style="font-size:12px;color:var(--mute);flex:none">'+kidName+
+            (d.getMonth()+1)+'/'+d.getDate()+' '+hhmm(r.startAt)+'</span>'+
+            '<span style="font-weight:700;font-size:13.5px">'+esc(TYPES[r.type]?TYPES[r.type].lb:r.type)+'</span></div>'+
+            (summary(r)?'<div style="font-size:13px;margin-top:3px">'+hl(snippet(summary(r),term,70),term)+'</div>':'')+
+            (r.note?'<div style="font-size:12.5px;color:var(--mute);margin-top:2px">'+hl(snippet(r.note,term,70),term)+'</div>':'');
+          row.onclick=function(){
+            closeSheet();
+            setTimeout(function(){
+              if(scope.all && r.childId!==S.kid){ S.kid=r.childId; localStorage.setItem('bl_kid',S.kid); }
+              S.day=dkey(new Date(r.startAt)); S.tab='today'; render();
+              setTimeout(function(){ openRecordForm(r.type,r); },120);
+            },170);
+          };
+          c.appendChild(row);
+        });
+        out.appendChild(c);
+        if(hits.length>60) out.appendChild(el('div','bandNote','只顯示前 60 筆，再輸入細一點可以縮小範圍。'));
+      }
+
+      if(mhits.length){
+        out.appendChild(el('div','secTitle','交接留言　'+mhits.length+' 則'));
+        var c2=el('div','card');
+        mhits.slice(0,30).forEach(function(m,i){
+          var p=parseMsg(m), d=new Date(m.at);
+          var row=el('button',null,'');
+          row.style.cssText='display:block;width:100%;text-align:left;padding:10px 2px;'+
+            (i?'border-top:1px solid var(--line)':'');
+          row.innerHTML='<div style="font-size:12px;color:var(--mute)">'+esc(m.by||'某人')+'・'+
+            (d.getMonth()+1)+'/'+d.getDate()+' '+hhmm(m.at)+'</div>'+
+            '<div style="font-size:13.5px;margin-top:3px">'+hl(snippet(p.text,term,80),term)+'</div>';
+          row.onclick=function(){
+            closeSheet();
+            setTimeout(function(){ S.tab='handoff'; render(); },170);
+          };
+          c2.appendChild(row);
+        });
+        out.appendChild(c2);
+      }
+    }
+
+    var t=null;
+    q.oninput=function(){ clearTimeout(t); t=setTimeout(run,180); };
+    run();
+    setTimeout(function(){ q.focus(); },250);
+  });
+}
 /* ============================================================
    8. 今日
    ============================================================ */
@@ -1704,6 +1867,7 @@ document.querySelectorAll('#tabs button').forEach(function(b){
 });
 $('#fab').onclick=openTypePicker;
 $('#kidBtn').onclick=function(){ S.children.length?openKidPicker():openChildForm(); };
+$('#searchBtn').onclick=openSearch;
 $('#menuBtn').onclick=openMenu;
 $('#syncBtn').onclick=function(){ pull().then(function(){toast('已更新');}); };
 $('#lightbox').onclick=function(){ $('#lightbox').classList.remove('on'); };
