@@ -2587,7 +2587,7 @@ function viewStats(root){
     var y=GY(hh);
     gg+='<line x1="'+GL+'" y1="'+y.toFixed(1)+'" x2="'+(GW-GR)+'" y2="'+y.toFixed(1)+
       '" stroke="#F0E3DA" stroke-width="'+(hh%6?0.6:1)+'"/>';
-    if(hh%6===0) gg+='<text x="'+(GL-4)+'" y="'+(y+3).toFixed(1)+'" text-anchor="end" font-size="8" fill="#9A8189">'+hh+'</text>';
+    gg+='<text x="'+(GL-4)+'" y="'+(y+2.8).toFixed(1)+'" text-anchor="end" font-size="7.5" fill="#9A8189">'+hh+'</text>';
   });
 
   var dayStart={};
@@ -2710,8 +2710,7 @@ function viewStats(root){
 
   var BARDEF={
     all:   {lb:'每日紀錄筆數',   f:'all',   fmt:function(v){return v;}},
-    sleep: {lb:'每日睡眠總時數', f:'sleep', fmt:function(v){return v.toFixed(1);},
-            unit:'跨夜的睡眠會依實際時間分攤到兩天，所以和卡片上的整段時數不同'},
+    sleep: {lb:'每日睡眠總時數', f:'sleep', fmt:function(v){return v.toFixed(1);}},
     feed:  {lb:'每日餵奶次數',   f:'feed',  fmt:function(v){return v;}},
     solid: {lb:'每日副食品次數', f:'solid', fmt:function(v){return v;}},
     poop:  {lb:'每日大便次數',   f:'poop',  fmt:function(v){return v;}},
