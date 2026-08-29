@@ -96,6 +96,19 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
   padding:2px 8px;font-size:11.5px;font-weight:700}
 
 /* ---------- today ---------- */
+.dentalCard{display:flex;align-items:center;gap:11px;background:#fff;border-radius:16px;
+  padding:12px 14px;margin-bottom:10px;border-left:4px solid #4F7FBF;
+  box-shadow:0 2px 10px rgba(133,14,53,.06)}
+.dentalCard.late{border-left-color:#D2523F;background:#FFF4F2}
+.dentalCard .ic{font-size:22px;flex:none}
+.dentalCard .ttl{font-weight:800;font-size:14.5px;color:#2F5C91}
+.dentalCard.late .ttl{color:#B03A2A}
+.dentalCard .sub{font-size:12.5px;color:var(--mute);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dentalBtn{flex:none;background:#4F7FBF;color:#fff;border-radius:11px;
+  padding:9px 14px;font-size:13px;font-weight:700}
+.dentalCard.late .dentalBtn{background:#D2523F}
+
 .quickGrid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
 .quick{background:#fff;border-radius:16px;padding:11px 4px 9px;text-align:center;
   box-shadow:0 2px 8px rgba(133,14,53,.05);flex:1 1 0}
@@ -295,7 +308,7 @@ svg.chart{width:100%;display:block;overflow:visible}
 <nav id="tabs" class="hide">
   <button data-tab="today" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>今日</button>
   <button data-tab="growth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 18l5-6 4 3 6-8"/><path d="M3 21h18"/></svg>成長</button>
-  <button data-tab="vaccine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 3l3 3M16 5l3 3-8 8H8v-3z"/><path d="M4 20h6"/></svg>疫苗</button>
+  <button data-tab="vaccine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 3l3 3M16 5l3 3-8 8H8v-3z"/><path d="M4 20h6"/></svg>保健</button>
   <button data-tab="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>統計</button>
   <button data-tab="handoff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12a8 8 0 01-11.5 7.2L4 20l1-4.5A8 8 0 1121 12z"/></svg>交接</button>
 </nav>
@@ -376,26 +389,39 @@ var VACCINES = [
   {m:0,  n:'B型肝炎疫苗 第1劑', note:'出生24小時內盡速接種'},
   {m:1,  n:'B型肝炎疫苗 第2劑'},
   {m:2,  n:'五合一疫苗 第1劑', note:'白喉破傷風百日咳、Hib、小兒麻痺'},
-  {m:2,  n:'13價肺炎鏈球菌 第1劑'},
+  {m:2,  n:'13價肺炎鏈球菌疫苗 第1劑'},
   {m:2,  n:'輪狀病毒疫苗 第1劑', self:true, note:'口服，需在規定週齡內完成'},
   {m:4,  n:'五合一疫苗 第2劑'},
-  {m:4,  n:'13價肺炎鏈球菌 第2劑'},
+  {m:4,  n:'13價肺炎鏈球菌疫苗 第2劑'},
   {m:4,  n:'輪狀病毒疫苗 第2劑', self:true},
-  {m:5,  n:'卡介苗 BCG', note:'建議滿5個月接種'},
+  {m:5,  n:'卡介苗 BCG 第1劑', note:'建議滿5個月接種'},
   {m:6,  n:'B型肝炎疫苗 第3劑'},
   {m:6,  n:'五合一疫苗 第3劑'},
   {m:6,  n:'流感疫苗 第1劑', note:'滿6個月起，每年10月開打；首次接種需2劑間隔4週'},
   {m:12, n:'水痘疫苗 第1劑'},
-  {m:12, n:'MMR 麻疹腮腺炎德國麻疹 第1劑'},
-  {m:12, n:'13價肺炎鏈球菌 第3劑'},
+  {m:12, n:'MMR疫苗 第1劑', note:'麻疹、腮腺炎、德國麻疹'},
+  {m:12, n:'13價肺炎鏈球菌疫苗 第3劑'},
   {m:15, n:'日本腦炎疫苗 第1劑', note:'活性減毒'},
   {m:18, n:'五合一疫苗 第4劑'},
   {m:18, n:'A型肝炎疫苗 第1劑', note:'114年起調整為滿18個月'},
   {m:27, n:'日本腦炎疫苗 第2劑', note:'與第1劑間隔12個月'},
   {m:27, n:'A型肝炎疫苗 第2劑'},
-  {m:60, n:'四合一疫苗 DTaP-IPV', note:'滿5歲至入國小前'},
-  {m:60, n:'MMR 第2劑', note:'滿5歲至入國小前'}
+  {m:60, n:'四合一疫苗 DTaP-IPV 第1劑', note:'滿5歲至入國小前'},
+  {m:60, n:'MMR疫苗 第2劑', note:'滿5歲至入國小前'}
 ];
+
+/* 舊名稱對應到新名稱，已存的紀錄不會因為改名而對不上 */
+var VAC_ALIAS = {
+  '13價肺炎鏈球菌 第1劑':'13價肺炎鏈球菌疫苗 第1劑',
+  '13價肺炎鏈球菌 第2劑':'13價肺炎鏈球菌疫苗 第2劑',
+  '13價肺炎鏈球菌 第3劑':'13價肺炎鏈球菌疫苗 第3劑',
+  'MMR 麻疹腮腺炎德國麻疹 第1劑':'MMR疫苗 第1劑',
+  'MMR 第1劑':'MMR疫苗 第1劑',
+  'MMR 第2劑':'MMR疫苗 第2劑',
+  '卡介苗 BCG':'卡介苗 BCG 第1劑',
+  '四合一疫苗 DTaP-IPV':'四合一疫苗 DTaP-IPV 第1劑'
+};
+function vacName(n){ return VAC_ALIAS[n] || n; }
 
 /* 生長曲線參考值（依 WHO 標準，即衛福部新版兒童生長曲線採用之標準）
    每列：[月齡, P3, P15, P50, P85, P97] */
@@ -804,7 +830,7 @@ function openRecordForm(type,rec){
       var nextv=input('date',d.next||'');
       nextv.oninput=function(){d.next=nextv.value;};
       bd.appendChild(field('下次回診日期',nextv));
-      bd.appendChild(el('div','bandNote','未滿 6 歲每半年可申請一次公費塗氟，填了下次回診日期，疫苗頁會一併提醒。'));
+      bd.appendChild(el('div','bandNote','填了下次回診日期，回診前一個月首頁就會出現提醒。未滿 6 歲每半年可申請一次公費塗氟。'));
     }
 
     if(type==='vaccine'){
@@ -814,24 +840,26 @@ function openRecordForm(type,rec){
         if(x.type!=='vaccine') return;
         if(rec && x.id===rec.id) return;
         var n=parseData(x).name;
-        if(n) doneNames[n]=true;
+        if(n) doneNames[vacName(n)]=true;
       });
 
+      var curName = d.name ? vacName(d.name) : '';
       var sel=el('select','in');
       sel.appendChild(el('option',null,'請選擇'));
       VACCINES.forEach(function(v){
         if(doneNames[v.n]) return;
         var o=el('option',null,esc(v.n)+(v.self?'（自費）':''));
         o.value=v.n;
-        if(d.name===v.n) o.selected=true;
+        if(curName===v.n) o.selected=true;
         sel.appendChild(o);
       });
       var oOther=el('option',null,'其他（自行輸入）'); oOther.value='__other'; sel.appendChild(oOther);
 
-      var isCustom = d.name && !VACCINES.some(function(v){return v.n===d.name;});
-      var other=input('text',d.name||'','疫苗名稱');
+      var isCustom = curName && !VACCINES.some(function(v){return v.n===curName;});
+      var other=input('text',curName||'','疫苗名稱');
       if(!isCustom) other.classList.add('hide');
       if(isCustom) sel.value='__other';
+      else if(curName) d.name=curName;
 
       sel.onchange=function(){
         if(sel.value==='__other'){ other.classList.remove('hide'); d.name=other.value; }
@@ -1062,7 +1090,7 @@ function summary(r){
     case 'temp': return (d.value||'')+' °C'+(d.spot?'・'+d.spot:'');
     case 'growth': return [d.height?'身高 '+d.height+' cm':'',d.weight?'體重 '+d.weight+' kg':'',d.head?'頭圍 '+d.head+' cm':''].filter(Boolean).join('・');
     case 'dental': return [d.item,d.clinic,d.next?'下次 '+d.next:''].filter(Boolean).join('・');
-    case 'vaccine': return (d.name||'疫苗')+(d.place?'・'+d.place:'');
+    case 'vaccine': return (d.name?vacName(d.name):'疫苗')+(d.place?'・'+d.place:'');
   }
   return '';
 }
@@ -1308,6 +1336,23 @@ function enableSwipe(node){
   },{passive:true});
 }
 
+/* 牙醫回診提醒：只認「最近一次看牙」所填的下次回診日期。
+   再看一次牙就會被新的取代；最新那次沒填下次日期＝目前沒有預約。 */
+function dentalDue(){
+  var recs=kidRecords().filter(function(r){return r.type==='dental';});
+  if(!recs.length) return null;
+  var latest=recs[0];   /* kidRecords 已由新到舊排序 */
+  var n=parseData(latest).next;
+  if(!n) return null;
+  var dt=new Date(n+'T12:00:00');
+  if(isNaN(dt)) return null;
+  var today=new Date(); today.setHours(0,0,0,0);
+  var days=Math.round((dt-today)/86400000);
+  if(days>30) return null;    /* 一個月內才提醒 */
+  if(days<-30) return null;   /* 過期太久就不再吵 */
+  return {date:dt, rec:latest, raw:n, days:days};
+}
+
 function viewToday(root){
   var k=kid();
   /* 睡眠中卡片 */
@@ -1333,6 +1378,28 @@ function viewToday(root){
       var t=$('#sleepTick'); if(!t){clearInterval(window._tick);return;}
       t.textContent=durShort(Date.now()-since);
     },1000);
+  }
+
+  /* 牙醫回診提醒（一個月內） */
+  var dd2=dentalDue();
+  if(dd2){
+    var late=dd2.days<0;
+    var card2=el('div','dentalCard'+(late?' late':''));
+    var when = dd2.days===0 ? '就是今天'
+      : dd2.days===1 ? '明天'
+      : dd2.days>0 ? '還有 '+dd2.days+' 天'
+      : '已過期 '+Math.abs(dd2.days)+' 天';
+    var dt=dd2.date;
+    card2.innerHTML='<span class="ic">🦷</span>'+
+      '<div style="flex:1;min-width:0">'+
+      '<div class="ttl">牙醫回診 · '+when+'</div>'+
+      '<div class="sub">'+(dt.getMonth()+1)+' 月 '+dt.getDate()+' 日（'+'日一二三四五六'[dt.getDay()]+'）'+
+      (parseData(dd2.rec).clinic?'　'+esc(parseData(dd2.rec).clinic):'')+'</div></div>';
+    var goBtn=el('button','dentalBtn','記錄');
+    goBtn.onclick=function(e){ e.stopPropagation(); openRecordForm('dental'); };
+    card2.appendChild(goBtn);
+    card2.onclick=function(){ careSub='dental'; S.tab='vaccine'; render(); };
+    root.appendChild(card2);
   }
 
   /* 快速鍵（可在設定中自訂） */
@@ -1539,11 +1606,88 @@ function viewGrowth(root){
 /* ============================================================
    10. 疫苗
    ============================================================ */
+var careSub='vaccine';
+function viewCare(root){
+  var pr=el('div','pillRow');
+  [['vaccine','💉 疫苗'],['dental','🦷 牙齒']].forEach(function(o){
+    var b=el('button','pill'+(careSub===o[0]?' on':''),o[1]);
+    b.onclick=function(){ careSub=o[0]; render(); };
+    pr.appendChild(b);
+  });
+  root.appendChild(pr);
+  if(careSub==='dental') viewDental(root); else viewVaccine(root);
+}
+
+function viewDental(root){
+  var k=kid();
+  var recs=kidRecords().filter(function(r){return r.type==='dental';});
+  var due=dentalDue();
+
+  var head=el('div','card');
+  var lastVisit=recs[0];
+  var fluor=recs.filter(function(r){return parseData(r).item==='塗氟';});
+  var lastFluor=fluor[0];
+  var fluorTxt='—';
+  if(lastFluor){
+    var mo=Math.floor((Date.now()-new Date(lastFluor.startAt))/86400000/30.4375);
+    fluorTxt=mo<1?'本月':mo+' 個月前';
+  }
+  head.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center">'+
+    '<div><div style="font-size:12px;color:var(--mute)">'+esc(k.name)+'　'+ageText(k.birthdate)+'</div>'+
+    '<div style="font-size:17px;font-weight:800;color:var(--wine);margin-top:2px">'+
+    (due ? (due.days<0?'回診已過期 '+Math.abs(due.days)+' 天'
+          : due.days===0?'今天要回診'
+          : '再 '+due.days+' 天回診')
+         : (lastVisit?'目前沒有預約回診':'還沒有看牙紀錄'))+'</div></div>'+
+    '<div style="text-align:right"><div style="font-size:22px;font-weight:900;color:var(--wine)">'+recs.length+'</div>'+
+    '<div style="font-size:11px;color:var(--mute)">看牙次數</div></div></div>';
+  root.appendChild(head);
+
+  var sg=el('div','dayStats');
+  [[fluorTxt,'上次塗氟'],[String(fluor.length),'塗氟次數'],
+   [lastVisit?new Date(lastVisit.startAt).toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'}):'—','上次看牙']
+  ].forEach(function(s){
+    sg.appendChild(el('div','st','<div class="v">'+esc(s[0])+'</div><div class="l">'+s[1]+'</div>'));
+  });
+  fitRows(sg,3);
+  root.appendChild(sg);
+  root.appendChild(el('div','bandNote','未滿 6 歲每半年可申請一次公費塗氟；未滿 12 歲第一大臼齒可申請免費窩溝封填。'));
+
+  var add=el('button','btn','＋ 新增看牙紀錄');
+  add.style.marginTop='10px';
+  add.onclick=function(){ openRecordForm('dental'); };
+  root.appendChild(add);
+
+  if(!recs.length){
+    root.appendChild(el('div','empty','<span class="big">🦷</span>還沒有看牙紀錄。'));
+    return;
+  }
+
+  root.appendChild(el('div','secTitle','歷次看牙'));
+  var c=el('div','card');
+  recs.forEach(function(r,i){
+    var d=parseData(r), dt=new Date(r.startAt);
+    var row=el('div','vac');
+    var chk=el('div','chk done','✓');
+    var info=el('div',null,''); info.style.flex='1';
+    var nextBadge = d.next ? '<span class="badge soon">下次 '+esc(d.next)+'</span>' : '';
+    info.innerHTML='<div class="nm">'+esc(d.item||'看牙')+nextBadge+'</div>'+
+      '<div class="mt">'+dt.toLocaleDateString('zh-TW')+
+      (d.clinic?'・'+esc(d.clinic):'')+
+      '　'+Math.round(ageMonths(k.birthdate,r.startAt))+' 個月大</div>'+
+      (r.note?'<div class="mt" style="color:var(--ink)">'+esc(r.note)+'</div>':'');
+    row.appendChild(chk); row.appendChild(info);
+    row.onclick=function(){ openRecordForm('dental',r); };
+    c.appendChild(row);
+  });
+  root.appendChild(c);
+}
+
 function viewVaccine(root){
   var k=kid();
   var done={};
   kidRecords().filter(function(r){return r.type==='vaccine';}).forEach(function(r){
-    var d=parseData(r); if(d.name) done[d.name]={at:r.startAt,rec:r};
+    var d=parseData(r); if(d.name) done[vacName(d.name)]={at:r.startAt,rec:r};
   });
   var nowM=ageMonths(k.birthdate);
   var dueList=[],upcoming=[],doneList=[];
@@ -1560,9 +1704,10 @@ function viewVaccine(root){
   kidRecords().filter(function(r){return r.type==='vaccine';}).forEach(function(r){
     var d=parseData(r);
     if(!d.name) return;
-    if(VACCINES.some(function(v){return v.n===d.name;})) return;
+    var nm=vacName(d.name);
+    if(VACCINES.some(function(v){return v.n===nm;})) return;
     doneList.push({
-      v:{n:d.name, custom:true, note:d.place||''},
+      v:{n:nm, custom:true, note:d.place||''},
       dueDate:new Date(r.startAt),
       done:{at:r.startAt,rec:r}
     });
@@ -1886,7 +2031,7 @@ function render(){
   }
   if(S.tab==='today') viewToday(root);
   else if(S.tab==='growth') viewGrowth(root);
-  else if(S.tab==='vaccine') viewVaccine(root);
+  else if(S.tab==='vaccine') viewCare(root);
   else if(S.tab==='stats') viewStats(root);
   else if(S.tab==='handoff') viewHandoff(root);
   window.scrollTo(0,0);
