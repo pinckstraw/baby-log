@@ -808,20 +808,37 @@ function openRecordForm(type,rec){
     }
 
     if(type==='vaccine'){
+      /* 這個寶寶已經打過的疫苗名稱（編輯中的這筆不算） */
+      var doneNames={};
+      kidRecords().forEach(function(x){
+        if(x.type!=='vaccine') return;
+        if(rec && x.id===rec.id) return;
+        var n=parseData(x).name;
+        if(n) doneNames[n]=true;
+      });
+
       var sel=el('select','in');
       sel.appendChild(el('option',null,'請選擇'));
       VACCINES.forEach(function(v){
-        var o=el('option',null,esc(v.n)+(v.self?'（自費）':'')); o.value=v.n;
-        if(d.name===v.n)o.selected=true; sel.appendChild(o);
+        if(doneNames[v.n]) return;
+        var o=el('option',null,esc(v.n)+(v.self?'（自費）':''));
+        o.value=v.n;
+        if(d.name===v.n) o.selected=true;
+        sel.appendChild(o);
       });
       var oOther=el('option',null,'其他（自行輸入）'); oOther.value='__other'; sel.appendChild(oOther);
-      var other=input('text',d.name||'','疫苗名稱'); other.classList.add('hide');
+
+      var isCustom = d.name && !VACCINES.some(function(v){return v.n===d.name;});
+      var other=input('text',d.name||'','疫苗名稱');
+      if(!isCustom) other.classList.add('hide');
+      if(isCustom) sel.value='__other';
+
       sel.onchange=function(){
         if(sel.value==='__other'){ other.classList.remove('hide'); d.name=other.value; }
         else { other.classList.add('hide'); d.name=sel.value; }
       };
       other.oninput=function(){d.name=other.value;};
-      if(d.name && !VACCINES.some(function(v){return v.n===d.name;})){ sel.value='__other'; other.classList.remove('hide'); }
+
       var vw=el('div'); vw.appendChild(sel); vw.appendChild(other);
       var place=input('text',d.place||'','例如 王小兒科診所');
       place.oninput=function(){d.place=place.value;};
@@ -832,6 +849,7 @@ function openRecordForm(type,rec){
       if(placeChips) placeWrap.appendChild(placeChips);
       placeWrap.appendChild(place);
       bd.appendChild(field('疫苗',vw));
+      bd.appendChild(el('div','bandNote','已接種過的不會出現在清單。每年的流感、或清單沒有的疫苗，選「其他（自行輸入）」。'));
       bd.appendChild(field('接種地點',placeWrap));
     }
 
