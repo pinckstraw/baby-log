@@ -359,6 +359,7 @@ var TYPES = {
 
 /* 首頁可自訂的快捷鍵 */
 var QUICKS = {
+  nurse:   {em:'🤱', lb:'親餵'},
   sleep:   {em:'🌙', lb:'開始睡'},
   feed:    {em:'🍼', lb:'餵奶'},
   solid:   {em:'🥣', lb:'副食品'},
@@ -374,7 +375,7 @@ var QUICKS = {
 var STATS = {
   sleepToday: {lb:'今日睡眠'},
   naps:       {lb:'睡眠次數'},
-  awake:      {lb:'已清醒'},
+  awake:      {lb:'清醒時間'},
   feedCount:  {lb:'餵奶次數'},
   feedMl:     {lb:'今日奶量'},
   breastMin:  {lb:'親餵時間'},
@@ -575,6 +576,7 @@ var S = {
   kid:localStorage.getItem('bl_kid')||'',
   tab:'today',
   replyTo:null,
+  keepScroll:false,
   day:dkey(new Date()),
   loaded:false
 };
@@ -1034,17 +1036,29 @@ function openMenu(){
     var nt=el('button','btn ghost','');
     nt.style.marginTop='10px';
     function paintNt(){
-      nt.textContent=(PREFS.nurse?'✓ ':'✕ ')+'親餵計時器';
-      nt.style.opacity=PREFS.nurse?'1':'.6';
+      nt.textContent=(PREFS.nurse?'✓ 已開啟':'○ 未開啟')+'　親餵計時器 🤱';
+      nt.style.background=PREFS.nurse?'#FFF1F3':'#fff';
+      nt.style.borderColor=PREFS.nurse?'var(--rose)':'var(--pink)';
+      nt.style.color=PREFS.nurse?'var(--wine)':'var(--mute)';
     }
     paintNt();
     nt.onclick=function(){
-      PREFS.nurse=!PREFS.nurse; savePrefs(); paintNt();
-      toast(PREFS.nurse?'已開啟，首頁會出現親餵計時':'已關閉');
-      render();
+      PREFS.nurse=!PREFS.nurse;
+      var i=PREFS.quicks.indexOf('nurse');
+      if(PREFS.nurse && i<0) PREFS.quicks.unshift('nurse');
+      if(!PREFS.nurse && i>=0) PREFS.quicks.splice(i,1);
+      savePrefs(); paintNt();
+      if(PREFS.nurse){
+        closeSheet();
+        S.tab='today'; render();
+        toast('已開啟，首頁多了一顆 🤱 親餵');
+      }else{
+        toast('已關閉');
+        render();
+      }
     };
     bd.appendChild(nt);
-    bd.appendChild(el('div','bandNote','開啟後首頁多一顆「親餵」按鈕，可以左右邊分別計時、隨時換邊，餵完按一次記錄。'));
+    bd.appendChild(el('div','bandNote','開啟後「今日」頁會多一顆 🤱 親餵快捷鍵，位置和順序可以在下面的「自訂顯示項目」裡自由調整。'));
 
     var b0=el('button','btn','自訂顯示項目');
     b0.onclick=function(){ closeSheet(); setTimeout(openCustomize,180); };
@@ -1088,7 +1102,10 @@ function openCustomize(){
           box.style.borderColor=on?'var(--rose)':'var(--pink)';
         });
       }
-      Object.keys(defs).forEach(function(k,idx){
+      var shown=0;
+      Object.keys(defs).forEach(function(k){
+        if(k==='nurse' && !PREFS.nurse) return;
+        var idx=shown++;
         var b=el('button',null,'');
         b.dataset.k=k;
         b.style.cssText='display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:11px 2px;'+
@@ -1473,9 +1490,13 @@ function statValue(key){
     case 'sleepToday': return (todaySleepMs()/3600000).toFixed(1)+'h';
     case 'naps': return of('sleep').length;
     case 'awake': {
-      var last=kidRecords().filter(function(r){return r.type==='sleep'&&r.endAt;})[0];
       if(ongoingSleep()) return '睡眠中';
-      return last?agoShort(Date.now()-new Date(last.endAt)):'—';
+      var ended=kidRecords().filter(function(r){return r.type==='sleep'&&r.endAt;});
+      if(!ended.length) return '—';
+      var last=ended.reduce(function(a,b){
+        return new Date(b.endAt)>new Date(a.endAt)?b:a;
+      });
+      return agoShort(Date.now()-new Date(last.endAt));
     }
     case 'feedCount': return of('feed').length;
     case 'feedMl': {
@@ -1680,20 +1701,16 @@ function viewToday(root){
     root.appendChild(card2);
   }
 
-  /* 快速鍵（可在設定中自訂） */
-  var qs=PREFS.quicks.filter(function(t){return QUICKS[t];});
-  if(PREFS.nurse) qs=['nurse'].concat(qs);
+  /* 快速鍵（可在設定中自訂；親餵要開啟計時器才會出現） */
+  var qs=PREFS.quicks.filter(function(t){
+    if(t==='nurse') return PREFS.nurse;
+    return QUICKS[t];
+  });
   if(qs.length){
     var qg=el('div','quickGrid');
     qs.forEach(function(t){
-      if(t==='nurse'){
-        var nbn=el('button','quick','<span class="em">🤱</span><span class="lb">親餵</span>');
-        nbn.onclick=function(){ openNurse(); };
-        qg.appendChild(nbn);
-        return;
-      }
       var b=el('button','quick','<span class="em">'+QUICKS[t].em+'</span><span class="lb">'+QUICKS[t].lb+'</span>');
-      b.onclick=function(){ openRecordForm(t); };
+      b.onclick = t==='nurse' ? openNurse : function(){ openRecordForm(t); };
       qg.appendChild(b);
     });
     fitRows(qg,qs.length);
@@ -1835,7 +1852,7 @@ function viewGrowth(root){
   var pr=el('div','pillRow');
   METRICS.forEach(function(m){
     var b=el('button','pill'+(gMetric===m.k?' on':''),m.lb);
-    b.onclick=function(){ gMetric=m.k; render(); };
+    b.onclick=function(){ gMetric=m.k; S.keepScroll=true; render(); };
     pr.appendChild(b);
   });
   root.appendChild(pr);
@@ -1913,7 +1930,7 @@ function viewCare(root){
   var pr=el('div','pillRow');
   [['vaccine','💉 疫苗'],['dental','🦷 牙齒'],['temp','🌡️ 體溫']].forEach(function(o){
     var b=el('button','pill'+(careSub===o[0]?' on':''),o[1]);
-    b.onclick=function(){ careSub=o[0]; render(); };
+    b.onclick=function(){ careSub=o[0]; S.keepScroll=true; render(); };
     pr.appendChild(b);
   });
   root.appendChild(pr);
@@ -1970,7 +1987,7 @@ function viewTemp(root){
   var pr2=el('div','pillRow');
   [[7,'近 7 天'],[14,'近 14 天'],[30,'近 30 天'],[0,'全部']].forEach(function(o){
     var b=el('button','pill'+(tempRange===o[0]?' on':''),o[1]);
-    b.onclick=function(){ tempRange=o[0]; render(); };
+    b.onclick=function(){ tempRange=o[0]; S.keepScroll=true; render(); };
     pr2.appendChild(b);
   });
   root.appendChild(pr2);
@@ -2237,7 +2254,7 @@ function viewStats(root){
   var pr=el('div','pillRow');
   [[7,'近 7 天'],[14,'近 14 天'],[30,'近 30 天']].forEach(function(o){
     var b=el('button','pill'+(statRange===o[0]?' on':''),o[1]);
-    b.onclick=function(){ statRange=o[0]; render(); };
+    b.onclick=function(){ statRange=o[0]; S.keepScroll=true; render(); };
     pr.appendChild(b);
   });
   root.appendChild(pr);
@@ -2340,83 +2357,99 @@ function viewStats(root){
     bars(def.lb, k, def.fmt, def.unit||'');
   });
 
-  /* ---- 24 小時分布 ---- */
-  root.appendChild(el('div','secTitle','24 小時分布'));
+  /* ---- 作息時間軸 ---- */
+  root.appendChild(el('div','secTitle','作息時間軸'));
   var hourTypes=[['sleep','🌙 睡眠'],['feed','🍼 餵奶'],['poop','💩 大便'],
                  ['solid','🥣 副食品'],['med','💊 用藥']];
   var hpr=el('div','pillRow');
   hourTypes.forEach(function(o){
     var b=el('button','pill'+(hourMetric===o[0]?' on':''),o[1]);
-    b.onclick=function(){ hourMetric=o[0]; render(); };
+    b.onclick=function(){ hourMetric=o[0]; S.keepScroll=true; render(); };
     hpr.appendChild(b);
   });
   root.appendChild(hpr);
 
-  var buckets=new Array(24).fill(0);
-  var rangeStart=days[0].d, rangeEnd=new Date(days[days.length-1].d.getTime()+86400000);
+  /* 每天一欄、縱軸 0–24 點，看得出每天發生的實際時間 */
+  var GW=320, GH=Math.min(300, Math.max(190, days.length>14?260:220));
+  var GL=22, GR=6, GT=8, GB=20;
+  var gw=GW-GL-GR, gh=GH-GT-GB;
+  var nD=days.length;
+  var colW=gw/nD;
+  function GX(i){ return GL+i*colW; }
+  function GY(h){ return GT+(h/24)*gh; }
+
+  var gg='<svg class="chart" viewBox="0 0 '+GW+' '+GH+'" preserveAspectRatio="none" style="height:'+GH+'px">';
+  /* 夜間底色 22:00–06:00 */
+  gg+='<rect x="'+GL+'" y="'+GY(0)+'" width="'+gw+'" height="'+(GY(6)-GY(0)).toFixed(1)+'" fill="#7C6BB0" opacity=".06"/>';
+  gg+='<rect x="'+GL+'" y="'+GY(22)+'" width="'+gw+'" height="'+(GY(24)-GY(22)).toFixed(1)+'" fill="#7C6BB0" opacity=".06"/>';
+  /* 隔欄淡底 */
+  days.forEach(function(x,i){
+    if(i%2) gg+='<rect x="'+GX(i).toFixed(1)+'" y="'+GT+'" width="'+colW.toFixed(2)+'" height="'+gh+'" fill="#FCF5EE"/>';
+  });
+  /* 橫線 + 時間標籤 */
+  [0,3,6,9,12,15,18,21,24].forEach(function(hh){
+    var y=GY(hh);
+    gg+='<line x1="'+GL+'" y1="'+y.toFixed(1)+'" x2="'+(GW-GR)+'" y2="'+y.toFixed(1)+
+      '" stroke="#F0E3DA" stroke-width="'+(hh%6?0.6:1)+'"/>';
+    if(hh%6===0) gg+='<text x="'+(GL-4)+'" y="'+(y+3).toFixed(1)+'" text-anchor="end" font-size="8" fill="#9A8189">'+hh+'</text>';
+  });
+
+  var dayStart={};
+  days.forEach(function(x,i){ dayStart[x.key]=i; });
+  var count=0;
+
   if(hourMetric==='sleep'){
-    /* 睡眠算「那個小時內睡了幾分鐘」，跨時段會自動切開 */
+    /* 睡眠畫成長條，跨夜自動切成兩段接在隔天頂端 */
     kidRecords().filter(function(r){return r.type==='sleep';}).forEach(function(r){
-      var s=new Date(r.startAt), e=r.endAt?new Date(r.endAt):new Date();
-      s=new Date(Math.max(s,rangeStart)); e=new Date(Math.min(e,rangeEnd));
-      if(e<=s) return;
-      var cur=new Date(s);
-      while(cur<e){
-        var nextHour=new Date(cur); nextHour.setMinutes(0,0,0); nextHour.setHours(nextHour.getHours()+1);
-        var seg=Math.min(nextHour,e)-cur;
-        buckets[cur.getHours()]+=seg/60000;
-        cur=new Date(Math.min(nextHour,e));
+      var s0=new Date(r.startAt), e0=r.endAt?new Date(r.endAt):new Date();
+      var cur=new Date(s0);
+      while(cur<e0){
+        var mid=new Date(cur); mid.setHours(24,0,0,0);
+        var segEnd=new Date(Math.min(mid,e0));
+        var i=dayStart[dkey(cur)];
+        if(i!=null){
+          var h1=cur.getHours()+cur.getMinutes()/60;
+          var h2=segEnd.getTime()===mid.getTime()?24:(segEnd.getHours()+segEnd.getMinutes()/60);
+          var y1=GY(h1), y2=GY(h2);
+          gg+='<rect x="'+(GX(i)+colW*0.18).toFixed(2)+'" y="'+y1.toFixed(1)+
+            '" width="'+(colW*0.64).toFixed(2)+'" height="'+Math.max(1.5,y2-y1).toFixed(1)+
+            '" rx="'+Math.min(2.5,colW*0.3).toFixed(1)+'" fill="#7C6BB0" opacity=".85"/>';
+          count++;
+        }
+        cur=new Date(mid);
       }
     });
   }else{
+    var col={feed:'#EE6983',poop:'#A9784B',solid:'#E0913C',med:'#4C9AA8',temp:'#D2523F'}[hourMetric]||'#850E35';
     kidRecords().filter(function(r){return r.type===hourMetric;}).forEach(function(r){
       var t=new Date(r.startAt);
-      if(t<rangeStart||t>=rangeEnd) return;
-      buckets[t.getHours()]++;
+      var i=dayStart[dkey(t)];
+      if(i==null) return;
+      var y=GY(t.getHours()+t.getMinutes()/60);
+      var sz=Math.max(3.5,Math.min(7,colW*0.45));
+      gg+='<rect x="'+(GX(i)+colW/2-sz/2).toFixed(2)+'" y="'+(y-sz/2).toFixed(2)+
+        '" width="'+sz.toFixed(1)+'" height="'+sz.toFixed(1)+'" rx="1.5" fill="'+col+'"/>';
+      count++;
     });
   }
 
+  /* 日期標籤 */
+  var everyD=Math.ceil(nD/5);
+  days.forEach(function(x,i){
+    if(i%everyD===0 || i===nD-1){
+      gg+='<text x="'+(GX(i)+colW/2).toFixed(1)+'" y="'+(GH-6)+
+        '" text-anchor="middle" font-size="7.5" fill="#9A8189">'+(x.d.getMonth()+1)+'/'+x.d.getDate()+'</text>';
+    }
+  });
+  gg+='</svg>';
+
   var hc=el('div','card');
-  var hmax=Math.max.apply(null,buckets)||1;
-  var HW=320,HH=118,HT=10,HB=20,hplot=HH-HT-HB;
-  var hgap=2, hbw=(HW-hgap*23)/24;
-  var hg='<svg class="chart" viewBox="0 0 '+HW+' '+HH+'" preserveAspectRatio="none" style="height:'+HH+'px">';
-  hg+='<line x1="0" y1="'+(HT+hplot)+'" x2="'+HW+'" y2="'+(HT+hplot)+'" stroke="#F0E3DA" stroke-width="1"/>';
-  /* 夜間區塊底色（22:00–06:00） */
-  [[0,6],[22,24]].forEach(function(z){
-    var x1=z[0]*(hbw+hgap), x2=z[1]*(hbw+hgap)-hgap;
-    hg+='<rect x="'+x1.toFixed(1)+'" y="'+HT+'" width="'+(x2-x1).toFixed(1)+'" height="'+hplot+
-      '" fill="#7C6BB0" opacity=".07"/>';
-  });
-  buckets.forEach(function(v,i){
-    var h=v>0?Math.max(2.5,(v/hmax)*hplot):1.5;
-    var x=i*(hbw+hgap), y=HT+hplot-h;
-    hg+='<rect x="'+x.toFixed(2)+'" y="'+y.toFixed(2)+'" width="'+hbw.toFixed(2)+'" height="'+h.toFixed(2)+
-      '" rx="2" fill="'+(v>0?'url(#hgrad)':'#F0E3DA')+'"/>';
-  });
-  [0,3,6,9,12,15,18,21].forEach(function(i){
-    hg+='<text x="'+(i*(hbw+hgap)+hbw/2).toFixed(1)+'" y="'+(HH-6)+
-      '" text-anchor="middle" font-size="8" fill="#9A8189">'+i+'</text>';
-  });
-  hg+='<defs><linearGradient id="hgrad" x1="0" y1="0" x2="0" y2="1">'+
-    '<stop offset="0" stop-color="#EE6983"/><stop offset="1" stop-color="#850E35"/>'+
-    '</linearGradient></defs></svg>';
-  var hbox=el('div',null,hg);
+  var hbox=el('div',null,gg);
   hbox.style.cssText='width:100%;overflow:hidden';
   hc.appendChild(hbox);
-
-  var peak=buckets.indexOf(Math.max.apply(null,buckets));
-  var totalB=buckets.reduce(function(a,b){return a+b;},0);
-  var hnote=el('div','bandNote');
-  if(totalB>0){
-    hnote.textContent = hourMetric==='sleep'
-      ? '最常睡的時段是 '+peak+':00–'+((peak+1)%24)+':00，平均每天這個小時睡 '+
-        (buckets[peak]/days.length).toFixed(0)+' 分鐘。淺紫色是夜間 22:00–06:00。'
-      : '最常發生在 '+peak+':00–'+((peak+1)%24)+':00，這段期間共 '+buckets[peak]+' 次。淺紫色是夜間 22:00–06:00。';
-  }else{
-    hnote.textContent='這段期間沒有紀錄。';
-  }
-  hc.appendChild(hnote);
+  hc.appendChild(el('div','bandNote',
+    count ? '直軸是一天 24 小時（0 在最上、24 在最下），每一欄是一天。淺紫色為夜間 22:00–06:00。'
+          : '這段期間沒有紀錄。'));
   root.appendChild(hc);
 
   /* 用藥與體溫摘要 */
@@ -2624,7 +2657,8 @@ function render(){
   else if(S.tab==='vaccine') viewCare(root);
   else if(S.tab==='stats') viewStats(root);
   else if(S.tab==='handoff') viewHandoff(root);
-  window.scrollTo(0,0);
+  if(S.keepScroll){ S.keepScroll=false; }
+  else window.scrollTo(0,0);
 }
 
 document.querySelectorAll('#tabs button').forEach(function(b){
