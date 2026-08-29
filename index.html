@@ -96,6 +96,22 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
   padding:2px 8px;font-size:11.5px;font-weight:700}
 
 /* ---------- today ---------- */
+.nurseNow{background:linear-gradient(135deg,#EE6983,#850E35);color:#fff;
+  border-radius:18px;padding:14px 16px;margin-bottom:12px;display:flex;
+  align-items:center;justify-content:space-between;gap:12px}
+.nurseNow .t{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums}
+.nurseTotal{font-size:44px;font-weight:900;color:var(--wine);text-align:center;
+  font-variant-numeric:tabular-nums;line-height:1.1;margin-top:4px}
+.nurseState{text-align:center;font-size:13px;color:var(--mute);margin:4px 0 14px}
+.nurseRow{display:flex;gap:10px;margin-bottom:10px}
+.nurseSide{flex:1;background:#fff;border:2px solid var(--line);border-radius:18px;
+  padding:18px 6px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.nurseSide .lb{font-size:20px;font-weight:900;color:var(--ink)}
+.nurseSide .tm{font-size:15px;font-weight:700;color:var(--mute);font-variant-numeric:tabular-nums}
+.nurseSide.on{background:var(--rose);border-color:var(--rose)}
+.nurseSide.on .lb,.nurseSide.on .tm{color:#fff}
+.nurseSide:active{transform:scale(.97)}
+
 .careCard{display:flex;align-items:center;gap:11px;background:#fff;border-radius:16px;
   padding:12px 14px;margin-bottom:10px;border-left:4px solid #4F7FBF;
   box-shadow:0 2px 10px rgba(133,14,53,.06)}
@@ -379,11 +395,13 @@ var DEFAULT_STATS  = ['sleepToday','feedCount','feedMl','poopCount'];
 
 var PREFS = {
   quicks: JSON.parse(localStorage.getItem('bl_quicks')||'null') || DEFAULT_QUICKS.slice(),
-  stats:  JSON.parse(localStorage.getItem('bl_stats') ||'null') || DEFAULT_STATS.slice()
+  stats:  JSON.parse(localStorage.getItem('bl_stats') ||'null') || DEFAULT_STATS.slice(),
+  nurse:  localStorage.getItem('bl_nurseOn')==='1'
 };
 function savePrefs(){
   localStorage.setItem('bl_quicks',JSON.stringify(PREFS.quicks));
   localStorage.setItem('bl_stats',JSON.stringify(PREFS.stats));
+  localStorage.setItem('bl_nurseOn',PREFS.nurse?'1':'0');
 }
 
 /* 台灣 CDC 現行兒童預防接種時程（公費）＋常見自費項目 */
@@ -883,9 +901,9 @@ function openRecordForm(type,rec){
       bd.appendChild(field('接種地點',placeWrap));
     }
 
-    /* 備註（含常用詞快速選單）+ 照片：跟事件一起送出 */
+    /* 備註（含常用詞快速選單）；照片只有大便需要 */
     bd.appendChild(noteField(type,model));
-    bd.appendChild(photoField(st));
+    if(type==='poop') bd.appendChild(photoField(st));
 
     var save=el('button','btn',rec?'儲存修改':'新增紀錄');
     save.onclick=function(){
@@ -985,6 +1003,21 @@ function openMenu(){
     var w=input('text',CFG.who,'你的名字');
     w.oninput=function(){ CFG.who=w.value; localStorage.setItem('bl_who',w.value); };
     bd.appendChild(field('我是誰（顯示在紀錄上）',w));
+    var nt=el('button','btn ghost','');
+    nt.style.marginTop='10px';
+    function paintNt(){
+      nt.textContent=(PREFS.nurse?'✓ ':'✕ ')+'親餵計時器';
+      nt.style.opacity=PREFS.nurse?'1':'.6';
+    }
+    paintNt();
+    nt.onclick=function(){
+      PREFS.nurse=!PREFS.nurse; savePrefs(); paintNt();
+      toast(PREFS.nurse?'已開啟，首頁會出現親餵計時':'已關閉');
+      render();
+    };
+    bd.appendChild(nt);
+    bd.appendChild(el('div','bandNote','開啟後首頁多一顆「親餵」按鈕，可以左右邊分別計時、隨時換邊，餵完按一次記錄。'));
+
     var b0=el('button','btn','自訂首頁快捷鍵與統計');
     b0.onclick=function(){ closeSheet(); setTimeout(openCustomize,180); };
     bd.appendChild(b0);
@@ -1085,7 +1118,16 @@ function summary(r){
   var d=parseData(r);
   switch(r.type){
     case 'sleep': return r.endAt ? '睡了 '+dur(new Date(r.endAt)-new Date(r.startAt))+'（'+hhmm(r.startAt)+'–'+hhmm(r.endAt)+'）' : '睡眠中…';
-    case 'feed': return (d.method||'')+(d.amount?' '+d.amount+(d.method==='親餵'?' 分鐘':' ml'):'');
+    case 'feed': {
+      if(d.L!=null || d.R!=null){
+        var seg=[];
+        if(d.L) seg.push('左 '+d.L+' 分');
+        if(d.R) seg.push('右 '+d.R+' 分');
+        var f=d.first==='L'?'從左開始':d.first==='R'?'從右開始':'';
+        return '親餵　'+seg.join('・')+(f?'（'+f+'）':'')+'　共 '+(d.amount||0)+' 分';
+      }
+      return (d.method||'')+(d.amount?' '+d.amount+(d.method==='親餵'?' 分鐘':' ml'):'');
+    }
     case 'solid': return (d.food||'副食品')+(d.accept?'・'+d.accept:'');
     case 'poop': return [d.texture,d.color?d.color+'色':'',d.amount?'量'+d.amount:''].filter(Boolean).join('・');
     case 'med': return d.name ? (d.name+(d.dose?' '+d.dose:'')+(d.reason?'（'+d.reason+'）':'')) : '';
@@ -1095,6 +1137,132 @@ function summary(r){
     case 'vaccine': return (d.name?vacName(d.name):'疫苗')+(d.place?'・'+d.place:'');
   }
   return '';
+}
+
+/* ============================================================
+   親餵計時器
+   ============================================================ */
+var NURSE=null;
+function nurseLoad(){
+  try{ NURSE=JSON.parse(localStorage.getItem('bl_nurse')||'null'); }catch(e){ NURSE=null; }
+  return NURSE;
+}
+function nurseSave(){
+  if(NURSE) localStorage.setItem('bl_nurse',JSON.stringify(NURSE));
+  else localStorage.removeItem('bl_nurse');
+}
+function nurseClear(){ NURSE=null; nurseSave(); }
+/* 目前各邊累積毫秒（含正在計時的那一段） */
+function nurseTotals(){
+  if(!NURSE) return {L:0,R:0,total:0};
+  var L=NURSE.L||0, R=NURSE.R||0;
+  if(NURSE.side && NURSE.since){
+    var run=Date.now()-NURSE.since;
+    if(NURSE.side==='L') L+=run; else R+=run;
+  }
+  return {L:L,R:R,total:L+R};
+}
+/* 按下某一邊：沒在計時就開始、同一邊再按停止、按另一邊就換邊 */
+function nurseTap(side){
+  if(!NURSE) NURSE={startedAt:new Date().toISOString(),L:0,R:0,side:null,since:null,first:side};
+  if(!NURSE.first) NURSE.first=side;
+  if(NURSE.side===side){                       /* 停止 */
+    var run=Date.now()-NURSE.since;
+    NURSE[side]=(NURSE[side]||0)+run;
+    NURSE.side=null; NURSE.since=null;
+  }else{
+    if(NURSE.side){                            /* 換邊：先結算目前這邊 */
+      var r2=Date.now()-NURSE.since;
+      NURSE[NURSE.side]=(NURSE[NURSE.side]||0)+r2;
+    }
+    NURSE.side=side; NURSE.since=Date.now();
+  }
+  nurseSave();
+}
+nurseLoad();
+
+function openNurse(){
+  var k=kid();
+  if(!k){ toast('請先新增寶寶'); return; }
+  var model={note:''};
+  openSheet('親餵計時 🤱',function(bd){
+    var big=el('div','nurseTotal','0:00');
+    bd.appendChild(big);
+    var stateLine=el('div','nurseState','點下面選一邊開始');
+    bd.appendChild(stateLine);
+
+    var row=el('div','nurseRow');
+    var bL=el('button','nurseSide','<span class="lb">左</span><span class="tm">0:00</span>');
+    var bR=el('button','nurseSide','<span class="lb">右</span><span class="tm">0:00</span>');
+    bL.type='button'; bR.type='button';
+    bL.onclick=function(){ nurseTap('L'); paint(); };
+    bR.onclick=function(){ nurseTap('R'); paint(); };
+    row.appendChild(bL); row.appendChild(bR);
+    bd.appendChild(row);
+
+    var hint=el('div','bandNote','按一下開始、再按一下暫停；直接按另一邊就換邊。全部餵完再按下面的「完成並記錄」。');
+    bd.appendChild(hint);
+
+    var ta=el('textarea','in'); ta.placeholder='備註（可留空）';
+    ta.oninput=function(){ model.note=ta.value; };
+    var nf=el('div','f'); nf.appendChild(el('label',null,'備註'));
+    var chips=attachTokens(ta,recentTokens(function(r){return r.type==='feed'?r.note:'';}),
+      function(v){ model.note=v; });
+    if(chips) nf.appendChild(chips);
+    nf.appendChild(ta);
+    bd.appendChild(nf);
+
+    var save=el('button','btn','完成並記錄');
+    save.onclick=function(){
+      var t=nurseTotals();
+      if(t.total<1000){ toast('還沒有計時'); return; }
+      if(NURSE.side){ nurseTap(NURSE.side); }   /* 先停掉還在跑的那邊 */
+      var tt=nurseTotals();
+      var Lm=Math.round(tt.L/60000), Rm=Math.round(tt.R/60000);
+      save.disabled=true; save.textContent='儲存中…';
+      var d={method:'親餵', amount:Lm+Rm, L:Lm, R:Rm, first:NURSE.first||''};
+      push('records',{
+        id:uuid(), childId:k.id, type:'feed',
+        startAt:NURSE.startedAt, endAt:new Date().toISOString(),
+        note:model.note, photoId:'', by:CFG.who,
+        data:JSON.stringify(d), deleted:''
+      }).then(function(saved){
+        S.records.push(saved); nurseClear(); closeSheet(); render();
+        toast('已記錄 親餵 '+(Lm+Rm)+' 分');
+      }).catch(function(){ save.disabled=false; save.textContent='再試一次'; });
+    };
+    bd.appendChild(save);
+
+    var cancel=el('button','btn ghost','取消並清除');
+    cancel.style.marginTop='10px';
+    cancel.onclick=function(){
+      if(!NURSE || confirm('要放棄這次的計時嗎？')){ nurseClear(); closeSheet(); render(); }
+    };
+    bd.appendChild(cancel);
+
+    function fmt(ms){
+      var s=Math.floor(ms/1000);
+      return Math.floor(s/60)+':'+pad(s%60);
+    }
+    function paint(){
+      var t=nurseTotals();
+      big.textContent=fmt(t.total);
+      $('.tm',bL).textContent=fmt(t.L);
+      $('.tm',bR).textContent=fmt(t.R);
+      bL.classList.toggle('on',NURSE&&NURSE.side==='L');
+      bR.classList.toggle('on',NURSE&&NURSE.side==='R');
+      stateLine.textContent = !NURSE ? '點下面選一邊開始'
+        : NURSE.side==='L' ? '左邊進行中…'
+        : NURSE.side==='R' ? '右邊進行中…'
+        : '已暫停，可以繼續或直接記錄';
+    }
+    paint();
+    clearInterval(window._nurseTick);
+    window._nurseTick=setInterval(function(){
+      if(!document.body.contains(big)){ clearInterval(window._nurseTick); return; }
+      paint();
+    },500);
+  });
 }
 
 /* ============================================================
@@ -1408,6 +1576,28 @@ function viewToday(root){
     },1000);
   }
 
+  /* 親餵計時（設定中開啟才顯示） */
+  if(PREFS.nurse){
+    nurseLoad();
+    if(NURSE){
+      var nt2=nurseTotals();
+      var ncard=el('div','nurseNow');
+      var sideTxt = NURSE.side==='L'?'左邊進行中':NURSE.side==='R'?'右邊進行中':'已暫停';
+      ncard.innerHTML='<div><div style="font-size:12px;opacity:.85">🤱 '+sideTxt+
+        '　左 '+Math.round(nt2.L/60000)+' 分・右 '+Math.round(nt2.R/60000)+' 分</div>'+
+        '<div class="t" id="nurseTick">'+durShort(nt2.total)+'</div></div>';
+      var nb=el('button','wakeBtn','繼續');
+      nb.onclick=function(){ openNurse(); };
+      ncard.appendChild(nb);
+      root.appendChild(ncard);
+      clearInterval(window._nurseHome);
+      window._nurseHome=setInterval(function(){
+        var t=$('#nurseTick'); if(!t){clearInterval(window._nurseHome);return;}
+        t.textContent=durShort(nurseTotals().total);
+      },1000);
+    }
+  }
+
   /* 疫苗提醒（一個月內／逾期） */
   var vd=vaccineDue();
   if(vd){
@@ -1454,9 +1644,16 @@ function viewToday(root){
 
   /* 快速鍵（可在設定中自訂） */
   var qs=PREFS.quicks.filter(function(t){return QUICKS[t];});
+  if(PREFS.nurse) qs=['nurse'].concat(qs);
   if(qs.length){
     var qg=el('div','quickGrid');
     qs.forEach(function(t){
+      if(t==='nurse'){
+        var nbn=el('button','quick','<span class="em">🤱</span><span class="lb">親餵</span>');
+        nbn.onclick=function(){ openNurse(); };
+        qg.appendChild(nbn);
+        return;
+      }
       var b=el('button','quick','<span class="em">'+QUICKS[t].em+'</span><span class="lb">'+QUICKS[t].lb+'</span>');
       b.onclick=function(){ openRecordForm(t); };
       qg.appendChild(b);
@@ -1537,7 +1734,7 @@ var gMetric='weight';
 function growthPoints(metric){
   var k=kid(); if(!k) return [];
   return kidRecords().filter(function(r){return r.type==='growth';})
-    .map(function(r){ var d=parseData(r); return {m:ageMonths(k.birthdate,r.startAt), v:parseFloat(d[metric]), at:r.startAt}; })
+    .map(function(r){ var d=parseData(r); return {m:ageMonths(k.birthdate,r.startAt), v:parseFloat(d[metric]), at:r.startAt, rec:r}; })
     .filter(function(p){return !isNaN(p.v)&&p.v>0;})
     .sort(function(a,b){return a.m-b.m;});
 }
@@ -1636,19 +1833,32 @@ function viewGrowth(root){
   c2.appendChild(lg);
   root.appendChild(c2);
 
-  if(pts.length>1){
+  if(pts.length){
     root.appendChild(el('div','secTitle','歷次紀錄'));
     var lc=el('div','card');
     pts.slice().reverse().forEach(function(p,i){
       var pp=percentile(sex,gMetric,p.m,p.v);
-      var row=el('div',null,'');
-      row.style.cssText='display:flex;justify-content:space-between;padding:9px 0;'+(i?'border-top:1px solid var(--line)':'');
-      row.innerHTML='<span style="font-size:13px;color:var(--mute)">'+new Date(p.at).toLocaleDateString('zh-TW')+
+      var d=parseData(p.rec);
+      var others=[];
+      if(gMetric!=='height'&&d.height) others.push('身高 '+d.height);
+      if(gMetric!=='weight'&&d.weight) others.push('體重 '+d.weight);
+      if(gMetric!=='head'&&d.head) others.push('頭圍 '+d.head);
+      var row=el('button',null,'');
+      row.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:8px;'+
+        'width:100%;text-align:left;padding:11px 0;'+(i?'border-top:1px solid var(--line)':'');
+      row.innerHTML='<span style="min-width:0"><span style="font-size:13px;color:var(--mute)">'+
+        new Date(p.at).toLocaleDateString('zh-TW')+
         '　<span style="color:var(--ink)">'+Math.round(p.m*10)/10+' 個月</span></span>'+
-        '<span style="font-weight:700">'+p.v+' '+mm.u+' <span class="tag">'+pp.toFixed(0)+'%</span></span>';
+        (others.length?'<div style="font-size:11.5px;color:var(--mute);margin-top:2px">'+esc(others.join('・'))+'</div>':'')+
+        '</span>'+
+        '<span style="font-weight:700;flex:none">'+p.v+' '+mm.u+
+        ' <span class="tag">'+pp.toFixed(0)+'%</span>'+
+        ' <span style="color:var(--mute);font-weight:400">›</span></span>';
+      row.onclick=function(){ openRecordForm('growth',p.rec); };
       lc.appendChild(row);
     });
     root.appendChild(lc);
+    root.appendChild(el('div','bandNote','點任一筆可以修改或刪除。'));
   }
   root.appendChild(el('div','bandNote','曲線依 WHO 兒童生長標準（衛福部新版兒童生長曲線採用之標準）繪製，為參考值；正式判讀請以兒童健康手冊與醫師評估為準。'));
 }
