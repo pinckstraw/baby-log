@@ -299,6 +299,46 @@ var TYPES = {
   vaccine: {em:'💉', lb:'疫苗',   color:'#8A6FBF'}
 };
 
+/* 首頁可自訂的快捷鍵 */
+var QUICKS = {
+  sleep:   {em:'🌙', lb:'開始睡'},
+  feed:    {em:'🍼', lb:'餵奶'},
+  solid:   {em:'🥣', lb:'副食品'},
+  poop:    {em:'💩', lb:'大便'},
+  med:     {em:'💊', lb:'用藥'},
+  temp:    {em:'🌡️', lb:'體溫'},
+  growth:  {em:'📏', lb:'身高體重'},
+  vaccine: {em:'💉', lb:'疫苗'}
+};
+
+/* 首頁可自訂的統計格 */
+var STATS = {
+  sleepToday: {lb:'今日睡眠(小時)'},
+  naps:       {lb:'睡眠次數'},
+  awake:      {lb:'已清醒'},
+  feedCount:  {lb:'餵奶次數'},
+  feedMl:     {lb:'奶量(ml)'},
+  breastMin:  {lb:'親餵(分鐘)'},
+  lastFeed:   {lb:'距上次餵奶'},
+  solidCount: {lb:'副食品次數'},
+  poopCount:  {lb:'大便次數'},
+  lastPoop:   {lb:'距上次大便'},
+  medCount:   {lb:'用藥次數'},
+  tempMax:    {lb:'最高體溫'}
+};
+
+var DEFAULT_QUICKS = ['sleep','feed','poop','med'];
+var DEFAULT_STATS  = ['sleepToday','feedCount','feedMl','poopCount'];
+
+var PREFS = {
+  quicks: JSON.parse(localStorage.getItem('bl_quicks')||'null') || DEFAULT_QUICKS.slice(),
+  stats:  JSON.parse(localStorage.getItem('bl_stats') ||'null') || DEFAULT_STATS.slice()
+};
+function savePrefs(){
+  localStorage.setItem('bl_quicks',JSON.stringify(PREFS.quicks));
+  localStorage.setItem('bl_stats',JSON.stringify(PREFS.stats));
+}
+
 /* 台灣 CDC 現行兒童預防接種時程（公費）＋常見自費項目 */
 var VACCINES = [
   {m:0,  n:'B型肝炎疫苗 第1劑', note:'出生24小時內盡速接種'},
@@ -558,6 +598,63 @@ function uploadIfNeeded(state){
     .then(function(j){ return j.photoId; });
 }
 
+/* 常用備註：把過去同類型備註拆成一個個詞，最近 10 個做成快速選單 */
+function recentNoteTokens(type){
+  var seen={}, out=[];
+  S.records.filter(function(r){return r.type===type && r.note;})
+    .sort(function(a,b){return new Date(b.startAt)-new Date(a.startAt);})
+    .forEach(function(r){
+      String(r.note).split(/\s+/).forEach(function(t){
+        t=t.trim();
+        if(!t || seen[t] || out.length>=10) return;
+        seen[t]=1; out.push(t);
+      });
+    });
+  return out;
+}
+function noteField(type,model){
+  var wrap=el('div','f');
+  wrap.appendChild(el('label',null,'備註'));
+
+  var ta=el('textarea','in');
+  ta.value=model.note||'';
+  ta.placeholder='想補充的都寫這裡，跟事件一起存';
+
+  var tokens=recentNoteTokens(type);
+  var chips=null;
+  function words(){ return (ta.value||'').split(/\s+/).filter(Boolean); }
+  function syncChips(){
+    if(!chips) return;
+    var w=words();
+    chips.querySelectorAll('button').forEach(function(b){
+      b.classList.toggle('on', w.indexOf(b.dataset.t)>=0);
+    });
+  }
+  if(tokens.length){
+    chips=el('div','pillRow');
+    chips.style.marginBottom='7px';
+    tokens.forEach(function(t){
+      var b=el('button','pill',esc(t));
+      b.type='button'; b.dataset.t=t;
+      b.onclick=function(){
+        var w=words(), i=w.indexOf(t);
+        if(i>=0) w.splice(i,1); else w.push(t);
+        ta.value=w.join(' ');
+        model.note=ta.value;
+        syncChips();
+      };
+      chips.appendChild(b);
+    });
+    wrap.appendChild(chips);
+  }
+
+  ta.oninput=function(){ model.note=ta.value; syncChips(); };
+  wrap.appendChild(ta);
+  if(tokens.length) wrap.appendChild(el('div','bandNote','點一下常用詞加入備註，再點一下移除；也可以直接打字。'));
+  syncChips();
+  return wrap;
+}
+
 /* ============================================================
    5. 新增／編輯紀錄
    ============================================================ */
@@ -678,10 +775,8 @@ function openRecordForm(type,rec){
       bd.appendChild(field('接種地點',place));
     }
 
-    /* 備註 + 照片：跟事件一起送出 */
-    var ta=el('textarea','in'); ta.value=model.note; ta.placeholder='想補充的都寫這裡，跟事件一起存';
-    ta.oninput=function(){model.note=ta.value;};
-    bd.appendChild(field('備註',ta));
+    /* 備註（含常用詞快速選單）+ 照片：跟事件一起送出 */
+    bd.appendChild(noteField(type,model));
     bd.appendChild(photoField(st));
 
     var save=el('button','btn',rec?'儲存修改':'新增紀錄');
@@ -782,7 +877,10 @@ function openMenu(){
     var w=input('text',CFG.who,'你的名字');
     w.oninput=function(){ CFG.who=w.value; localStorage.setItem('bl_who',w.value); };
     bd.appendChild(field('我是誰（顯示在紀錄上）',w));
-    var b1=el('button','btn ghost','立即重新同步');
+    var b0=el('button','btn','自訂首頁快捷鍵與統計');
+    b0.onclick=function(){ closeSheet(); setTimeout(openCustomize,180); };
+    bd.appendChild(b0);
+    var b1=el('button','btn ghost','立即重新同步'); b1.style.marginTop='10px';
     b1.onclick=function(){ closeSheet(); pull().then(function(){toast('已更新');}); };
     bd.appendChild(b1);
     var b3=el('button','btn ghost','清除本機照片快取'); b3.style.marginTop='10px';
@@ -804,6 +902,63 @@ function openMenu(){
     bd.appendChild(el('div','bandNote','資料存在你自己的 Google 試算表；照片存在你的 Google 雲端硬碟「育兒日誌照片」資料夾。'));
   });
 }
+function openCustomize(){
+  openSheet('自訂首頁',function(bd){
+    bd.appendChild(el('div','bandNote','勾選要出現在「今日」頁最上方的項目，順序就是你點選的順序。這份設定只影響這台裝置，每個人可以各自設定。'));
+
+    function picker(title,defs,list,max,hint){
+      bd.appendChild(el('div','secTitle',title));
+      var c=el('div','card');
+      var counter=el('div','bandNote','');
+      function refresh(){
+        counter.textContent='已選 '+list.length+' 項'+(max?'（最多 '+max+' 項）':'')+(hint?'　'+hint:'');
+        c.querySelectorAll('button[data-k]').forEach(function(b){
+          var i=list.indexOf(b.dataset.k), on=i>=0, box=b.querySelector('.box');
+          b.querySelector('.num').textContent=on?(i+1):'';
+          box.style.background=on?'var(--rose)':'transparent';
+          box.style.borderColor=on?'var(--rose)':'var(--pink)';
+        });
+      }
+      Object.keys(defs).forEach(function(k,idx){
+        var b=el('button',null,'');
+        b.dataset.k=k;
+        b.style.cssText='display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:11px 2px;'+
+          (idx?'border-top:1px solid var(--line);':'');
+        b.innerHTML='<span style="width:22px;height:22px;border-radius:7px;border:2px solid var(--pink);'+
+          'display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff;flex:none" class="box">'+
+          '<span class="num"></span></span>'+
+          '<span style="flex:1;font-size:14.5px;font-weight:600">'+(defs[k].em?defs[k].em+' ':'')+esc(defs[k].lb)+'</span>';
+        b.onclick=function(){
+          var i=list.indexOf(k);
+          if(i>=0) list.splice(i,1);
+          else {
+            if(max && list.length>=max){ toast('最多只能選 '+max+' 項'); return; }
+            list.push(k);
+          }
+          savePrefs(); refresh();
+        };
+        c.appendChild(b);
+      });
+      bd.appendChild(c);
+      bd.appendChild(counter);
+      refresh();
+    }
+
+    picker('快捷鍵',QUICKS,PREFS.quicks,8,'每列 4 個');
+    picker('統計數字',STATS,PREFS.stats,8,'每列 4 個');
+
+    var reset=el('button','btn ghost','恢復預設');
+    reset.onclick=function(){
+      PREFS.quicks=DEFAULT_QUICKS.slice(); PREFS.stats=DEFAULT_STATS.slice();
+      savePrefs(); closeSheet(); render(); toast('已恢復預設');
+    };
+    bd.appendChild(reset);
+    var done=el('button','btn','完成'); done.style.marginTop='10px';
+    done.onclick=function(){ closeSheet(); render(); };
+    bd.appendChild(done);
+  });
+}
+
 function exportCsv(){
   var k=kid(); if(!k) return;
   var rows=[['時間','結束','類型','內容','備註','紀錄者']];
@@ -842,6 +997,61 @@ function ongoingSleep(){
 function recordsOn(day){
   return kidRecords().filter(function(r){return dkey(new Date(r.startAt))===day;});
 }
+function agoShort(ms){
+  if(ms==null) return '—';
+  var m=Math.round(ms/60000);
+  if(m<60) return m+'分';
+  return Math.floor(m/60)+'時'+pad(m%60);
+}
+function todaySleepMs(){
+  var ms=0, d0=new Date(); d0.setHours(0,0,0,0);
+  var d1=new Date(d0.getTime()+86400000);
+  kidRecords().forEach(function(r){
+    if(r.type!=='sleep')return;
+    var s=new Date(r.startAt), e=r.endAt?new Date(r.endAt):new Date();
+    var a=Math.max(s,d0), b=Math.min(e,d1);
+    if(b>a) ms+=b-a;
+  });
+  return ms;
+}
+function lastOf(type){
+  return kidRecords().filter(function(r){return r.type===type;})[0];
+}
+function statValue(key){
+  var today=recordsOn(dkey(new Date()));
+  var of=function(t){ return today.filter(function(r){return r.type===t;}); };
+  switch(key){
+    case 'sleepToday': return (todaySleepMs()/3600000).toFixed(1);
+    case 'naps': return of('sleep').length;
+    case 'awake': {
+      var last=kidRecords().filter(function(r){return r.type==='sleep'&&r.endAt;})[0];
+      if(ongoingSleep()) return '睡眠中';
+      return last?agoShort(Date.now()-new Date(last.endAt)):'—';
+    }
+    case 'feedCount': return of('feed').length;
+    case 'feedMl': {
+      var ml=of('feed').reduce(function(a,r){var d=parseData(r);
+        return a+(d.method!=='親餵'?(parseFloat(d.amount)||0):0);},0);
+      return ml?ml:'—';
+    }
+    case 'breastMin': {
+      var mn=of('feed').reduce(function(a,r){var d=parseData(r);
+        return a+(d.method==='親餵'?(parseFloat(d.amount)||0):0);},0);
+      return mn?mn:'—';
+    }
+    case 'lastFeed': { var l=lastOf('feed'); return l?agoShort(Date.now()-new Date(l.startAt)):'—'; }
+    case 'solidCount': return of('solid').length;
+    case 'poopCount': return of('poop').length;
+    case 'lastPoop': { var p=lastOf('poop'); return p?agoShort(Date.now()-new Date(p.startAt)):'—'; }
+    case 'medCount': return of('med').length;
+    case 'tempMax': {
+      var vs=of('temp').map(function(r){return parseFloat(parseData(r).value)||0;}).filter(Boolean);
+      return vs.length?Math.max.apply(null,vs).toFixed(1)+'°':'—';
+    }
+  }
+  return '—';
+}
+
 function viewToday(root){
   var k=kid();
   /* 睡眠中卡片 */
@@ -869,36 +1079,28 @@ function viewToday(root){
     },1000);
   }
 
-  /* 快速鍵 */
-  var qg=el('div','quickGrid');
-  [['sleep','開始睡'],['feed','餵奶'],['poop','大便'],['med','用藥']].forEach(function(q){
-    var b=el('button','quick','<span class="em">'+TYPES[q[0]].em+'</span><span class="lb">'+q[1]+'</span>');
-    b.onclick=function(){ openRecordForm(q[0]); };
-    qg.appendChild(b);
-  });
-  root.appendChild(qg);
+  /* 快速鍵（可在設定中自訂） */
+  if(PREFS.quicks.length){
+    var qg=el('div','quickGrid');
+    PREFS.quicks.forEach(function(t){
+      if(!QUICKS[t])return;
+      var b=el('button','quick','<span class="em">'+QUICKS[t].em+'</span><span class="lb">'+QUICKS[t].lb+'</span>');
+      b.onclick=function(){ openRecordForm(t); };
+      qg.appendChild(b);
+    });
+    root.appendChild(qg);
+  }
 
-  /* 今日統計 */
-  var today=recordsOn(dkey(new Date()));
-  var sleepMs=0;
-  kidRecords().forEach(function(r){
-    if(r.type!=='sleep')return;
-    var s=new Date(r.startAt), e=r.endAt?new Date(r.endAt):new Date();
-    var d0=new Date(); d0.setHours(0,0,0,0); var d1=new Date(d0.getTime()+86400000);
-    var a=Math.max(s,d0), b=Math.min(e,d1);
-    if(b>a) sleepMs+=b-a;
-  });
-  var feeds=today.filter(function(r){return r.type==='feed';});
-  var ml=feeds.reduce(function(a,r){var d=parseData(r);return a+(d.method!=='親餵'?(parseFloat(d.amount)||0):0);},0);
-  var sg=el('div','dayStats');
-  [[ (sleepMs/3600000).toFixed(1),'今日睡眠(小時)'],
-   [feeds.length,'餵奶次數'],
-   [ml?ml+'ml':'—','奶量'],
-   [today.filter(function(r){return r.type==='poop';}).length,'大便次數']
-  ].forEach(function(s){
-    sg.appendChild(el('div','st','<div class="v">'+s[0]+'</div><div class="l">'+s[1]+'</div>'));
-  });
-  root.appendChild(sg);
+  /* 今日統計（可在設定中自訂） */
+  if(PREFS.stats.length){
+    var sg=el('div','dayStats');
+    PREFS.stats.forEach(function(key){
+      if(!STATS[key])return;
+      var v=statValue(key);
+      sg.appendChild(el('div','st','<div class="v">'+v+'</div><div class="l">'+STATS[key].lb+'</div>'));
+    });
+    root.appendChild(sg);
+  }
 
   /* 日期切換 */
   root.appendChild(el('div','secTitle','時間軸'));
