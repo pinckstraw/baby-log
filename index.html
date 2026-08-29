@@ -207,6 +207,25 @@ svg.chart{width:100%;display:block;overflow:visible}
 /* ---------- handoff ---------- */
 .msg{background:#fff;border-radius:16px;padding:12px 14px;margin-bottom:10px;
   box-shadow:0 2px 8px rgba(133,14,53,.05)}
+.msg.reply{margin-left:24px;border-left:3px solid var(--pink)}
+.msg .quote{background:var(--cream);border-radius:10px;padding:7px 10px;margin-bottom:7px;
+  font-size:12px;color:var(--mute);border-left:3px solid var(--pink)}
+.msg .quote b{color:var(--wine);font-weight:700}
+.msg .acts{display:flex;gap:14px;margin-top:8px}
+.msg .acts button{font-size:12px;color:var(--mute);font-weight:600}
+.msg .acts button.rep{color:var(--rose)}
+.replyBar{display:flex;align-items:center;gap:10px;background:var(--cream);
+  border-radius:12px;padding:9px 11px;margin-bottom:9px;border-left:3px solid var(--rose)}
+.replyBar .txt{flex:1;min-width:0;font-size:12.5px;color:var(--mute);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.replyBar .txt b{color:var(--wine)}
+.replyBar button{width:26px;height:26px;border-radius:50%;background:#fff;color:var(--mute);
+  display:grid;place-items:center;flex:none}
+#tabs button{position:relative}
+.badge-dot{position:absolute;top:2px;right:50%;transform:translateX(20px);
+  min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#E0245E;color:#fff;
+  font-size:10.5px;font-weight:800;line-height:17px;text-align:center;
+  box-shadow:0 1px 4px rgba(224,36,94,.45)}
 .msg .mh{display:flex;justify-content:space-between;font-size:11.5px;color:var(--mute);margin-bottom:5px}
 .msg .mb{white-space:pre-wrap;word-break:break-word;font-size:14.5px}
 .msg.mine{background:#FFF1F3}
@@ -488,6 +507,7 @@ var S = {
   children:[], records:[], handoff:[],
   kid:localStorage.getItem('bl_kid')||'',
   tab:'today',
+  replyTo:null,
   day:dkey(new Date()),
   loaded:false
 };
@@ -1464,58 +1484,132 @@ function viewStats(root){
 }
 
 /* ============================================================
-   12. 交接留言板
+   12. 交接留言板（支援多筆回覆、未讀數字）
    ============================================================ */
+/* 回覆是把 [re:對方留言id] 存在文字最前面，不用改後端欄位 */
+function parseMsg(m){
+  var t=String(m.text||'');
+  var mt=t.match(/^\[re:([^\]]+)\]\s*/);
+  return { parentId: mt?mt[1]:null, text: mt?t.slice(mt[0].length):t };
+}
+function msgMap(){
+  var mp={}; S.handoff.forEach(function(m){ mp[m.id]=m; }); return mp;
+}
+function rootOf(m,mp){
+  var cur=m, guard=0;
+  while(guard++<50){
+    var p=parseMsg(cur).parentId;
+    if(!p || !mp[p]) return cur;
+    cur=mp[p];
+  }
+  return cur;
+}
+function unreadCount(){
+  var since=localStorage.getItem('bl_handoffRead')||'1970-01-01T00:00:00.000Z';
+  return S.handoff.filter(function(m){
+    return m.by!==CFG.who && new Date(m.at)>new Date(since);
+  }).length;
+}
+function markHandoffRead(){
+  localStorage.setItem('bl_handoffRead',new Date().toISOString());
+}
+
 function viewHandoff(root){
+  markHandoffRead();
+  var mp=msgMap();
   var st={photoId:null,dataUrl:null};
+  var target=S.replyTo && mp[S.replyTo] ? mp[S.replyTo] : null;
+  if(S.replyTo && !target) S.replyTo=null;
+
   var c=el('div','card');
+
+  if(target){
+    var bar=el('div','replyBar');
+    var tp=parseMsg(target);
+    bar.innerHTML='<div class="txt">回覆 <b>'+esc(target.by||'某人')+'</b>：'+esc(tp.text.slice(0,40))+'</div>';
+    var xb=el('button',null,'✕');
+    xb.onclick=function(){ S.replyTo=null; render(); };
+    bar.appendChild(xb);
+    c.appendChild(bar);
+  }
+
   var ta=el('textarea','in');
-  ta.placeholder='留給爸媽或保母的話，例如：今天下午有點鼻塞，晚上七點吃過退燒藥。';
-  c.appendChild(field('新留言',ta));
+  ta.placeholder=target?('回覆 '+(target.by||'某人')+'…')
+    :'留給爸媽或保母的話，例如：今天下午有點鼻塞，晚上七點吃過退燒藥。';
+  c.appendChild(field(target?'回覆':'新留言',ta));
   c.appendChild(photoField(st));
-  var send=el('button','btn','送出留言');
+  var send=el('button','btn',target?'送出回覆':'送出留言');
   send.onclick=function(){
     if(!ta.value.trim()){ toast('先寫點什麼吧'); return; }
     send.disabled=true; send.textContent='送出中…';
+    var body=(S.replyTo?'[re:'+S.replyTo+'] ':'')+ta.value;
     uploadIfNeeded(st).then(function(pid){
-      return push('handoff',{id:uuid(),at:new Date().toISOString(),by:CFG.who,text:ta.value,photoId:pid||'',deleted:''});
+      return push('handoff',{id:uuid(),at:new Date().toISOString(),by:CFG.who,text:body,photoId:pid||'',deleted:''});
     }).then(function(saved){
-      S.handoff.push(saved); render(); toast('已送出');
+      S.handoff.push(saved); S.replyTo=null; markHandoffRead(); render(); toast('已送出');
     }).catch(function(){ send.disabled=false; send.textContent='再試一次'; });
   };
   c.appendChild(send);
   root.appendChild(c);
 
-  var msgs=S.handoff.slice().sort(function(a,b){return new Date(b.at)-new Date(a.at);});
-  if(!msgs.length){
+  if(!S.handoff.length){
     root.appendChild(el('div','empty','<span class="big">💬</span>還沒有留言。<br>交接事項寫在這裡，大家都看得到。'));
     return;
   }
-  root.appendChild(el('div','secTitle','留言'));
-  msgs.forEach(function(m){
-    var w=el('div','msg'+(m.by===CFG.who?' mine':''));
+
+  /* 依主留言分組：主留言由新到舊，底下的回覆由舊到新照順序排 */
+  var roots=[], kids={};
+  S.handoff.forEach(function(m){
+    var r=rootOf(m,mp);
+    if(r.id===m.id) roots.push(m);
+    else (kids[r.id]=kids[r.id]||[]).push(m);
+  });
+  roots.sort(function(a,b){return new Date(b.at)-new Date(a.at);});
+  Object.keys(kids).forEach(function(k){
+    kids[k].sort(function(a,b){return new Date(a.at)-new Date(b.at);});
+  });
+
+  function bubble(m,isReply){
+    var p=parseMsg(m);
+    var w=el('div','msg'+(m.by===CFG.who?' mine':'')+(isReply?' reply':''));
     var d=new Date(m.at);
-    w.innerHTML='<div class="mh"><span>'+esc(m.by||'某人')+'</span><span>'+
-      (d.getMonth()+1)+'/'+d.getDate()+' '+hhmm(m.at)+'</span></div>'+
-      '<div class="mb">'+esc(m.text)+'</div>';
+    var head='<div class="mh"><span>'+esc(m.by||'某人')+'</span><span>'+
+      (d.getMonth()+1)+'/'+d.getDate()+' '+hhmm(m.at)+'</span></div>';
+    var quote='';
+    if(isReply && p.parentId && mp[p.parentId]){
+      var par=mp[p.parentId], pp=parseMsg(par);
+      quote='<div class="quote">回覆 <b>'+esc(par.by||'某人')+'</b>：'+
+        esc(pp.text.slice(0,50))+(pp.text.length>50?'…':'')+'</div>';
+    }
+    w.innerHTML=head+quote+'<div class="mb">'+esc(p.text)+'</div>';
     if(m.photoId){
-      var im=el('img','thumb'); im.style.cssText='width:100%;border-radius:11px;margin-top:8px';
+      var im=el('img'); im.style.cssText='width:100%;border-radius:11px;margin-top:8px';
       photoUrl(m.photoId,im);
       im.onclick=function(){ $('#lbImg').src=im.src; $('#lightbox').classList.add('on'); };
       w.appendChild(im);
     }
+    var acts=el('div','acts');
+    var rep=el('button','rep','↩ 回覆');
+    rep.onclick=function(){ S.replyTo=m.id; render(); window.scrollTo({top:0,behavior:'smooth'}); };
+    acts.appendChild(rep);
     if(m.by===CFG.who){
       var del=el('button',null,'刪除');
-      del.style.cssText='font-size:12px;color:var(--mute);margin-top:8px';
       del.onclick=function(){
-        if(!confirm('刪除這則留言？'))return;
+        if(!confirm('刪除這則留言？'+((kids[m.id]||[]).length?'（底下的回覆會保留）':'')))return;
         removeItem('handoff',m.id).then(function(){
           S.handoff=S.handoff.filter(function(x){return x.id!==m.id;}); render();
         });
       };
-      w.appendChild(del);
+      acts.appendChild(del);
     }
-    root.appendChild(w);
+    w.appendChild(acts);
+    return w;
+  }
+
+  root.appendChild(el('div','secTitle','留言'));
+  roots.forEach(function(m){
+    root.appendChild(bubble(m,false));
+    (kids[m.id]||[]).forEach(function(r){ root.appendChild(bubble(r,true)); });
   });
 }
 
@@ -1533,6 +1627,14 @@ function render(){
   }
   document.querySelectorAll('#tabs button').forEach(function(b){
     b.classList.toggle('on',b.dataset.tab===S.tab);
+    var old=b.querySelector('.badge-dot');
+    if(old) old.remove();
+    if(b.dataset.tab==='handoff'){
+      var n=unreadCount();
+      if(n>0 && S.tab!=='handoff'){
+        b.appendChild(el('span','badge-dot',n>99?'99+':String(n)));
+      }
+    }
   });
   var root=$('#main'); root.innerHTML='';
   if(!k){
@@ -1550,7 +1652,12 @@ function render(){
 }
 
 document.querySelectorAll('#tabs button').forEach(function(b){
-  b.onclick=function(){ S.tab=b.dataset.tab; if(S.tab==='today') S.day=dkey(new Date()); render(); };
+  b.onclick=function(){
+    if(b.dataset.tab!=='handoff') S.replyTo=null;
+    S.tab=b.dataset.tab;
+    if(S.tab==='today') S.day=dkey(new Date());
+    render();
+  };
 });
 $('#fab').onclick=openTypePicker;
 $('#kidBtn').onclick=function(){ S.children.length?openKidPicker():openChildForm(); };
