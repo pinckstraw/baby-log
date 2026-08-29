@@ -95,11 +95,12 @@ h1,h2,h3{margin:0;font-family:"Noto Serif TC",serif;font-weight:700;letter-spaci
   padding:2px 8px;font-size:11.5px;font-weight:700}
 
 /* ---------- today ---------- */
-.quickGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:6px}
+.quickGrid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
 .quick{background:#fff;border-radius:16px;padding:11px 4px 9px;text-align:center;
-  box-shadow:0 2px 8px rgba(133,14,53,.05)}
+  box-shadow:0 2px 8px rgba(133,14,53,.05);flex:1 1 0}
 .quick .em{font-size:21px;display:block}
-.quick .lb{font-size:11px;font-weight:600;margin-top:4px;color:var(--ink)}
+.quick .lb{font-size:11px;font-weight:600;margin-top:4px;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .quick:active{background:var(--cream)}
 .sleepNow{background:linear-gradient(135deg,var(--rose),var(--wine));color:#fff;
   border-radius:18px;padding:14px 16px;margin-bottom:12px;display:flex;
@@ -107,11 +108,13 @@ h1,h2,h3{margin:0;font-family:"Noto Serif TC",serif;font-weight:700;letter-spaci
 .sleepNow .t{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums}
 .wakeBtn{background:#fff;color:var(--wine);border-radius:12px;padding:10px 15px;font-weight:800;font-size:14px;flex:none}
 
-.dayStats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:4px}
-.st{background:#fff;border-radius:14px;padding:10px 6px;text-align:center;
-  box-shadow:0 2px 8px rgba(133,14,53,.05)}
-.st .v{font-size:17px;font-weight:900;color:var(--wine);font-variant-numeric:tabular-nums}
-.st .l{font-size:10.5px;color:var(--mute);margin-top:1px}
+.dayStats{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px}
+.st{background:#fff;border-radius:14px;padding:10px 5px;text-align:center;
+  box-shadow:0 2px 8px rgba(133,14,53,.05);flex:1 1 0;min-width:0}
+.st .v{font-size:17px;font-weight:900;color:var(--wine);font-variant-numeric:tabular-nums;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st .l{font-size:10.5px;color:var(--mute);margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 .tl{position:relative;padding-left:30px}
 .tl:before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:var(--line)}
@@ -313,14 +316,14 @@ var QUICKS = {
 
 /* 首頁可自訂的統計格 */
 var STATS = {
-  sleepToday: {lb:'今日睡眠(小時)'},
+  sleepToday: {lb:'今日睡眠'},
   naps:       {lb:'睡眠次數'},
   awake:      {lb:'已清醒'},
   feedCount:  {lb:'餵奶次數'},
-  feedMl:     {lb:'奶量(ml)'},
-  breastMin:  {lb:'親餵(分鐘)'},
+  feedMl:     {lb:'今日奶量'},
+  breastMin:  {lb:'親餵時間'},
   lastFeed:   {lb:'距上次餵奶'},
-  solidCount: {lb:'副食品次數'},
+  solidCount: {lb:'副食品'},
   poopCount:  {lb:'大便次數'},
   lastPoop:   {lb:'距上次大便'},
   medCount:   {lb:'用藥次數'},
@@ -599,13 +602,15 @@ function uploadIfNeeded(state){
     .then(function(j){ return j.photoId; });
 }
 
-/* 常用備註：把過去同類型備註拆成一個個詞，最近 10 個做成快速選單 */
-function recentNoteTokens(type){
+/* 常用詞快速選單：把過去輸入過的內容拆成詞，最近 10 個做成可點選的按鈕 */
+function recentTokens(pick){
   var seen={}, out=[];
-  S.records.filter(function(r){return r.type===type && r.note;})
+  S.records.slice()
     .sort(function(a,b){return new Date(b.startAt)-new Date(a.startAt);})
     .forEach(function(r){
-      String(r.note).split(/\s+/).forEach(function(t){
+      var txt=pick(r);
+      if(!txt) return;
+      String(txt).split(/\s+/).forEach(function(t){
         t=t.trim();
         if(!t || seen[t] || out.length>=10) return;
         seen[t]=1; out.push(t);
@@ -613,46 +618,48 @@ function recentNoteTokens(type){
     });
   return out;
 }
-function noteField(type,model){
-  var wrap=el('div','f');
-  wrap.appendChild(el('label',null,'備註'));
-
-  var ta=el('textarea','in');
-  ta.value=model.note||'';
-  ta.placeholder='想補充的都寫這裡，跟事件一起存';
-
-  var tokens=recentNoteTokens(type);
-  var chips=null;
-  function words(){ return (ta.value||'').split(/\s+/).filter(Boolean); }
-  function syncChips(){
-    if(!chips) return;
+/* 把常用詞按鈕接到任何一個輸入框上（點一下加入、再點一下移除，以空白隔開） */
+function attachTokens(inputEl,tokens,onChange){
+  if(!tokens.length) return null;
+  var chips=el('div','pillRow');
+  chips.style.marginBottom='7px';
+  function words(){ return (inputEl.value||'').split(/\s+/).filter(Boolean); }
+  function sync(){
     var w=words();
     chips.querySelectorAll('button').forEach(function(b){
       b.classList.toggle('on', w.indexOf(b.dataset.t)>=0);
     });
   }
-  if(tokens.length){
-    chips=el('div','pillRow');
-    chips.style.marginBottom='7px';
-    tokens.forEach(function(t){
-      var b=el('button','pill',esc(t));
-      b.type='button'; b.dataset.t=t;
-      b.onclick=function(){
-        var w=words(), i=w.indexOf(t);
-        if(i>=0) w.splice(i,1); else w.push(t);
-        ta.value=w.join(' ');
-        model.note=ta.value;
-        syncChips();
-      };
-      chips.appendChild(b);
-    });
-    wrap.appendChild(chips);
-  }
-
-  ta.oninput=function(){ model.note=ta.value; syncChips(); };
+  tokens.forEach(function(t){
+    var b=el('button','pill',esc(t));
+    b.type='button'; b.dataset.t=t;
+    b.onclick=function(){
+      var w=words(), i=w.indexOf(t);
+      if(i>=0) w.splice(i,1); else w.push(t);
+      inputEl.value=w.join(' ');
+      if(onChange) onChange(inputEl.value);
+      sync();
+    };
+    chips.appendChild(b);
+  });
+  var prev=inputEl.oninput;
+  inputEl.oninput=function(e){ if(prev) prev(e); sync(); };
+  chips._sync=sync;
+  setTimeout(sync,0);
+  return chips;
+}
+function noteField(type,model){
+  var wrap=el('div','f');
+  wrap.appendChild(el('label',null,'備註'));
+  var ta=el('textarea','in');
+  ta.value=model.note||'';
+  ta.placeholder='想補充的都寫這裡，跟事件一起存';
+  ta.oninput=function(){ model.note=ta.value; };
+  var tokens=recentTokens(function(r){ return r.type===type ? r.note : ''; });
+  var chips=attachTokens(ta,tokens,function(v){ model.note=v; });
+  if(chips) wrap.appendChild(chips);
   wrap.appendChild(ta);
-  if(tokens.length) wrap.appendChild(el('div','bandNote','點一下常用詞加入備註，再點一下移除；也可以直接打字。'));
-  syncChips();
+  if(chips) wrap.appendChild(el('div','bandNote','點一下常用詞加入，再點一下移除；也可以直接打字。'));
   return wrap;
 }
 
@@ -713,7 +720,14 @@ function openRecordForm(type,rec){
     if(type==='solid'){
       var food=input('text',d.food||'','例如 十倍粥、南瓜泥、香蕉');
       food.oninput=function(){d.food=food.value;};
-      bd.appendChild(field('吃了什麼',food));
+      var foodWrap=el('div');
+      var foodChips=attachTokens(food,
+        recentTokens(function(r){ return r.type==='solid' ? parseData(r).food : ''; }),
+        function(v){ d.food=v; });
+      if(foodChips) foodWrap.appendChild(foodChips);
+      foodWrap.appendChild(food);
+      if(foodChips) foodWrap.appendChild(el('div','bandNote','點一下常用食材加入，再點一下移除；也可以直接打字。'));
+      bd.appendChild(field('吃了什麼',foodWrap));
       bd.appendChild(field('接受度',segment(['吃光','吃一半','吃一點','拒吃'],d.accept||'',function(v){d.accept=v;})));
     }
 
@@ -724,15 +738,7 @@ function openRecordForm(type,rec){
     }
 
     if(type==='med'){
-      var mn=input('text',d.name||'','例如 安佳熱、希普利敏液');
-      mn.oninput=function(){d.name=mn.value;};
-      var ds=input('text',d.dose||'','例如 3ml、半包');
-      ds.oninput=function(){d.dose=ds.value;};
-      var rs=input('text',d.reason||'','例如 發燒 38.5、鼻塞');
-      rs.oninput=function(){d.reason=rs.value;};
-      bd.appendChild(field('藥品名稱',mn));
-      var r2=el('div','row2'); r2.appendChild(field('劑量',ds)); r2.appendChild(field('原因',rs));
-      bd.appendChild(r2);
+      bd.appendChild(el('div','bandNote','藥品、劑量、原因都直接寫在下面的備註，點常用詞就能快速組合。'));
     }
 
     if(type==='temp'){
@@ -981,7 +987,7 @@ function summary(r){
     case 'feed': return (d.method||'')+(d.amount?' '+d.amount+(d.method==='親餵'?' 分鐘':' ml'):'');
     case 'solid': return (d.food||'副食品')+(d.accept?'・'+d.accept:'');
     case 'poop': return [d.texture,d.color?d.color+'色':'',d.amount?'量'+d.amount:''].filter(Boolean).join('・');
-    case 'med': return (d.name||'用藥')+(d.dose?' '+d.dose:'')+(d.reason?'（'+d.reason+'）':'');
+    case 'med': return d.name ? (d.name+(d.dose?' '+d.dose:'')+(d.reason?'（'+d.reason+'）':'')) : '';
     case 'temp': return (d.value||'')+' °C'+(d.spot?'・'+d.spot:'');
     case 'growth': return [d.height?'身高 '+d.height+' cm':'',d.weight?'體重 '+d.weight+' kg':'',d.head?'頭圍 '+d.head+' cm':''].filter(Boolean).join('・');
     case 'vaccine': return (d.name||'疫苗')+(d.place?'・'+d.place:'');
@@ -998,6 +1004,16 @@ function ongoingSleep(){
 function recordsOn(day){
   return kidRecords().filter(function(r){return dkey(new Date(r.startAt))===day;});
 }
+/* 依項目數決定每列幾格，讓每一列都填滿，不會留空格 */
+function fitRows(container,n){
+  var per = n<=4 ? n : (n<=6 ? 3 : 4);
+  var basis = 'calc('+(100/per)+'% - '+((per-1)*8/per).toFixed(2)+'px)';
+  Array.prototype.forEach.call(container.children,function(c){
+    c.style.flexBasis=basis;
+  });
+  return per;
+}
+
 function agoShort(ms){
   if(ms==null) return '—';
   var m=Math.round(ms/60000);
@@ -1022,7 +1038,7 @@ function statValue(key){
   var today=recordsOn(dkey(new Date()));
   var of=function(t){ return today.filter(function(r){return r.type===t;}); };
   switch(key){
-    case 'sleepToday': return (todaySleepMs()/3600000).toFixed(1);
+    case 'sleepToday': return (todaySleepMs()/3600000).toFixed(1)+'h';
     case 'naps': return of('sleep').length;
     case 'awake': {
       var last=kidRecords().filter(function(r){return r.type==='sleep'&&r.endAt;})[0];
@@ -1033,12 +1049,12 @@ function statValue(key){
     case 'feedMl': {
       var ml=of('feed').reduce(function(a,r){var d=parseData(r);
         return a+(d.method!=='親餵'?(parseFloat(d.amount)||0):0);},0);
-      return ml?ml:'—';
+      return ml?ml+'ml':'—';
     }
     case 'breastMin': {
       var mn=of('feed').reduce(function(a,r){var d=parseData(r);
         return a+(d.method==='親餵'?(parseFloat(d.amount)||0):0);},0);
-      return mn?mn:'—';
+      return mn?mn+'分':'—';
     }
     case 'lastFeed': { var l=lastOf('feed'); return l?agoShort(Date.now()-new Date(l.startAt)):'—'; }
     case 'solidCount': return of('solid').length;
@@ -1082,25 +1098,26 @@ function viewToday(root){
   }
 
   /* 快速鍵（可在設定中自訂） */
-  if(PREFS.quicks.length){
+  var qs=PREFS.quicks.filter(function(t){return QUICKS[t];});
+  if(qs.length){
     var qg=el('div','quickGrid');
-    PREFS.quicks.forEach(function(t){
-      if(!QUICKS[t])return;
+    qs.forEach(function(t){
       var b=el('button','quick','<span class="em">'+QUICKS[t].em+'</span><span class="lb">'+QUICKS[t].lb+'</span>');
       b.onclick=function(){ openRecordForm(t); };
       qg.appendChild(b);
     });
+    fitRows(qg,qs.length);
     root.appendChild(qg);
   }
 
   /* 今日統計（可在設定中自訂） */
-  if(PREFS.stats.length){
+  var ss=PREFS.stats.filter(function(k){return STATS[k];});
+  if(ss.length){
     var sg=el('div','dayStats');
-    PREFS.stats.forEach(function(key){
-      if(!STATS[key])return;
-      var cell=el('div','st','<div class="v" data-stat="'+key+'">'+statValue(key)+'</div><div class="l">'+STATS[key].lb+'</div>');
-      sg.appendChild(cell);
+    ss.forEach(function(key){
+      sg.appendChild(el('div','st','<div class="v" data-stat="'+key+'">'+statValue(key)+'</div><div class="l">'+STATS[key].lb+'</div>'));
     });
+    fitRows(sg,ss.length);
     root.appendChild(sg);
     clearInterval(window._statTick);
     window._statTick=setInterval(function(){
@@ -1427,10 +1444,19 @@ function viewStats(root){
     root.appendChild(el('div','secTitle','用藥'));
     var mc=el('div','card');
     var group={};
-    meds.forEach(function(r){ var n=parseData(r).name||'未填藥名'; group[n]=(group[n]||0)+1; });
-    Object.keys(group).forEach(function(n,i){
+    meds.forEach(function(r){
+      var d=parseData(r);
+      var words=(r.note||'').split(/\s+/).filter(Boolean);
+      if(!words.length && d.name) words=[d.name];
+      if(!words.length) words=['未填內容'];
+      words.forEach(function(w){ group[w]=(group[w]||0)+1; });
+    });
+    var keys=Object.keys(group).sort(function(a,b){return group[b]-group[a];});
+    var hd=el('div','bandNote','共 '+meds.length+' 次用藥，依備註中的項目分別統計：');
+    hd.style.margin='0 0 6px'; mc.appendChild(hd);
+    keys.forEach(function(n,i){
       var row=el('div',null,'<span>'+esc(n)+'</span><span class="tag">'+group[n]+' 次</span>');
-      row.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:9px 0;'+(i?'border-top:1px solid var(--line)':'');
+      row.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--line)';
       mc.appendChild(row);
     });
     root.appendChild(mc);
