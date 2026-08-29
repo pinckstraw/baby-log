@@ -324,6 +324,7 @@ var STATS = {
   poopCount:  {lb:'大便次數'},
   lastPoop:   {lb:'距上次大便'},
   medCount:   {lb:'用藥次數'},
+  lastMed:    {lb:'距上次用藥'},
   tempMax:    {lb:'最高體溫'}
 };
 
@@ -1044,6 +1045,7 @@ function statValue(key){
     case 'poopCount': return of('poop').length;
     case 'lastPoop': { var p=lastOf('poop'); return p?agoShort(Date.now()-new Date(p.startAt)):'—'; }
     case 'medCount': return of('med').length;
+    case 'lastMed': { var md=lastOf('med'); return md?agoShort(Date.now()-new Date(md.startAt)):'—'; }
     case 'tempMax': {
       var vs=of('temp').map(function(r){return parseFloat(parseData(r).value)||0;}).filter(Boolean);
       return vs.length?Math.max.apply(null,vs).toFixed(1)+'°':'—';
@@ -1096,10 +1098,16 @@ function viewToday(root){
     var sg=el('div','dayStats');
     PREFS.stats.forEach(function(key){
       if(!STATS[key])return;
-      var v=statValue(key);
-      sg.appendChild(el('div','st','<div class="v">'+v+'</div><div class="l">'+STATS[key].lb+'</div>'));
+      var cell=el('div','st','<div class="v" data-stat="'+key+'">'+statValue(key)+'</div><div class="l">'+STATS[key].lb+'</div>');
+      sg.appendChild(cell);
     });
     root.appendChild(sg);
+    clearInterval(window._statTick);
+    window._statTick=setInterval(function(){
+      var cells=document.querySelectorAll('[data-stat]');
+      if(!cells.length){ clearInterval(window._statTick); return; }
+      cells.forEach(function(c){ c.textContent=statValue(c.dataset.stat); });
+    },30000);
   }
 
   /* 日期切換 */
