@@ -2466,19 +2466,26 @@ function viewStats(root){
   function axisFont(n){ return n<=7?8.5:n<=14?7:6.3; }
 
   var nDays=days.length;
-  function avgOf(f){ return days.reduce(function(a,x){return a+(x[f]||0);},0)/nDays; }
+  /* 還沒到的日子不列入計算 */
+  var pastDays=days.filter(function(x){return x.d<=todayD;});
+  var nPast=pastDays.length||1;
   function sumOf(f){ return days.reduce(function(a,x){return a+(x[f]||0);},0); }
   function maxOf(f){ return Math.max.apply(null,days.map(function(x){return x[f]||0;})); }
   function daysWith(f){ return days.filter(function(x){return (x[f]||0)>0;}).length; }
+  /* 平均只除以「有紀錄的天數」，沒記錄的日子不稀釋數字 */
+  function avgOf(f){
+    var n=daysWith(f);
+    return n ? sumOf(f)/n : 0;
+  }
 
   /* 摘要數字：跟著上面的類型切換 */
   var tiles;
   if(hourMetric==='sleep'){
-    tiles=[[avgOf('sleep').toFixed(1)+'h','平均睡眠'],[avgOf('naps').toFixed(1),'平均次數'],
+    tiles=[[avgOf('sleep').toFixed(1)+'h','每天睡眠'],[avgOf('naps').toFixed(1),'每天次數'],
            [maxOf('sleep').toFixed(1)+'h','最長一天'],[sumOf('naps'),'總次數']];
   }else if(hourMetric==='feed'){
     var am=avgOf('ml');
-    tiles=[[avgOf('feed').toFixed(1),'平均次數'],[am?Math.round(am)+'ml':'—','平均奶量'],
+    tiles=[[avgOf('feed').toFixed(1),'每天次數'],[am?Math.round(am)+'ml':'—','每天奶量'],
            [sumOf('feed'),'總次數'],[sumOf('ml')?Math.round(sumOf('ml'))+'ml':'—','總奶量']];
   }else if(hourMetric==='temp'){
     var tvals=days.map(function(x){return x.temp;}).filter(Boolean);
@@ -2489,12 +2496,12 @@ function viewStats(root){
            [tvals.length?(tvals.reduce(function(a,b){return a+b;},0)/tvals.length).toFixed(1)+'°':'—','平均'],
            [tvals.length,'量測天數'],[fevCount,'發燒次數']];
   }else if(hourMetric==='all'){
-    tiles=[[sumOf('all'),'總筆數'],[avgOf('all').toFixed(1),'平均每天'],
-           [avgOf('sleep').toFixed(1)+'h','平均睡眠'],
-           [daysWith('all')+'/'+nDays,'有紀錄天數']];
+    tiles=[[sumOf('all'),'總筆數'],[daysWith('all')+'/'+nPast,'有紀錄天數'],
+           [avgOf('sleep').toFixed(1)+'h','每天睡眠'],
+           [maxOf('all'),'最多一天筆數']];
   }else{
-    tiles=[[avgOf(hourMetric).toFixed(1),'平均次數'],[sumOf(hourMetric),'總次數'],
-           [maxOf(hourMetric),'最多一天'],[daysWith(hourMetric)+'/'+nDays,'有紀錄天數']];
+    tiles=[[avgOf(hourMetric).toFixed(1),'每天次數'],[sumOf(hourMetric),'總次數'],
+           [maxOf(hourMetric),'最多一天'],[daysWith(hourMetric)+'/'+nPast,'有紀錄天數']];
   }
   var sg=el('div','dayStats');
   tiles.forEach(function(t){
@@ -2502,6 +2509,7 @@ function viewStats(root){
   });
   fitRows(sg,tiles.length);
   root.appendChild(sg);
+  root.appendChild(el('div','bandNote','「每天」是只除以有紀錄的天數，沒記錄的日子不列入計算；尚未到來的日子也不算。'));
 
   /* ---- 作息時間軸 ---- */
   root.appendChild(el('div','secTitle','作息時間軸'));
