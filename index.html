@@ -190,7 +190,7 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 .in{width:100%;border:1.5px solid var(--line);background:#fff;border-radius:13px;
   padding:12px 13px;outline:none}
 .in:focus{border-color:var(--rose)}
-textarea.in{min-height:74px;resize:vertical;line-height:1.5}
+textarea.in{min-height:46px;resize:none;line-height:1.5;overflow:hidden}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .seg{display:flex;gap:6px;flex-wrap:wrap}
@@ -384,7 +384,8 @@ var STATS = {
   lastPoop:   {lb:'距上次大便'},
   medCount:   {lb:'用藥次數'},
   lastMed:    {lb:'距上次用藥'},
-  tempMax:    {lb:'最高體溫'}
+  tempMax:    {lb:'最高體溫'},
+  lastFever:  {lb:'距上次發燒'}
 };
 
 var DEFAULT_QUICKS = ['sleep','feed','poop','med'];
@@ -734,19 +735,35 @@ function attachTokens(inputEl,tokens,onChange){
   setTimeout(sync,0);
   return chips;
 }
+/* 備註輸入框：預設一行，內容變多才自己長高 */
+function autoGrow(ta){
+  function fit(){
+    ta.style.height='auto';
+    ta.style.height=Math.min(200,Math.max(46,ta.scrollHeight))+'px';
+  }
+  var prev=ta.oninput;
+  ta.oninput=function(e){ if(prev) prev(e); fit(); };
+  setTimeout(fit,0);
+  return ta;
+}
 function noteField(type,model){
   var wrap=el('div','f');
   wrap.appendChild(el('label',null,'備註'));
   var ta=el('textarea','in');
+  ta.rows=1;
   ta.value=model.note||'';
-  ta.placeholder='想補充的都寫這裡，跟事件一起存';
+  ta.placeholder='想補充的都寫這裡';
   ta.oninput=function(){ model.note=ta.value; };
   var tokens=recentTokens(function(r){ return r.type===type ? r.note : ''; });
-  var chips=attachTokens(ta,tokens,function(v){ model.note=v; });
+  var chips=attachTokens(ta,tokens,function(v){ model.note=v; autoGrowFit(ta); });
   if(chips) wrap.appendChild(chips);
   wrap.appendChild(ta);
-  if(chips) wrap.appendChild(el('div','bandNote','點一下常用詞加入，再點一下移除；也可以直接打字。'));
+  autoGrow(ta);
   return wrap;
+}
+function autoGrowFit(ta){
+  ta.style.height='auto';
+  ta.style.height=Math.min(200,Math.max(46,ta.scrollHeight))+'px';
 }
 
 /* ============================================================
@@ -1216,13 +1233,14 @@ function openNurse(){
     var hint=el('div','bandNote','按一下開始、再按一下暫停；直接按另一邊就換邊。全部餵完再按下面的「完成並記錄」。');
     bd.appendChild(hint);
 
-    var ta=el('textarea','in'); ta.placeholder='備註（可留空）';
+    var ta=el('textarea','in'); ta.rows=1; ta.placeholder='備註（可留空）';
     ta.oninput=function(){ model.note=ta.value; };
     var nf=el('div','f'); nf.appendChild(el('label',null,'備註'));
     var chips=attachTokens(ta,recentTokens(function(r){return r.type==='feed'?r.note:'';}),
-      function(v){ model.note=v; });
+      function(v){ model.note=v; autoGrowFit(ta); });
     if(chips) nf.appendChild(chips);
     nf.appendChild(ta);
+    autoGrow(ta);
     bd.appendChild(nf);
 
     var save=el('button','btn','完成並記錄');
@@ -1476,6 +1494,13 @@ function statValue(key){
     case 'lastPoop': { var p=lastOf('poop'); return p?agoShort(Date.now()-new Date(p.startAt)):'—'; }
     case 'medCount': return of('med').length;
     case 'lastMed': { var md=lastOf('med'); return md?agoShort(Date.now()-new Date(md.startAt)):'—'; }
+    case 'lastFever': {
+      var fv=kidRecords().filter(function(r){return r.type==='temp'&&isFever(r);})[0];
+      if(!fv) return '無';
+      var ms=Date.now()-new Date(fv.startAt);
+      var dy=Math.floor(ms/86400000);
+      return dy>0 ? dy+'天' : agoShort(ms);
+    }
     case 'tempMax': {
       var vs=of('temp').map(function(r){return parseFloat(parseData(r).value)||0;}).filter(Boolean);
       return vs.length?Math.max.apply(null,vs).toFixed(1)+'°':'—';
@@ -1886,13 +1911,176 @@ function viewGrowth(root){
 var careSub='vaccine';
 function viewCare(root){
   var pr=el('div','pillRow');
-  [['vaccine','💉 疫苗'],['dental','🦷 牙齒']].forEach(function(o){
+  [['vaccine','💉 疫苗'],['dental','🦷 牙齒'],['temp','🌡️ 體溫']].forEach(function(o){
     var b=el('button','pill'+(careSub===o[0]?' on':''),o[1]);
     b.onclick=function(){ careSub=o[0]; render(); };
     pr.appendChild(b);
   });
   root.appendChild(pr);
-  if(careSub==='dental') viewDental(root); else viewVaccine(root);
+  if(careSub==='dental') viewDental(root);
+  else if(careSub==='temp') viewTemp(root);
+  else viewVaccine(root);
+}
+
+/* 發燒門檻：耳溫／肛溫 38.0；額溫／腋溫較低，用 37.5 */
+function feverLimit(spot){
+  return (spot==='額溫'||spot==='腋溫') ? 37.5 : 38.0;
+}
+function isFever(r){
+  var d=parseData(r), v=parseFloat(d.value);
+  return !isNaN(v) && v>=feverLimit(d.spot);
+}
+function tempPoints(){
+  return kidRecords().filter(function(r){return r.type==='temp';})
+    .map(function(r){ var d=parseData(r);
+      return {v:parseFloat(d.value), at:r.startAt, spot:d.spot||'', rec:r, fever:isFever(r)};
+    })
+    .filter(function(p){ return !isNaN(p.v)&&p.v>0; });
+}
+
+var tempRange=14;
+function viewTemp(root){
+  var all=tempPoints();                       /* 由新到舊 */
+  if(!all.length){
+    root.appendChild(el('div','empty','<span class="big">🌡️</span>還沒有體溫紀錄。'));
+    var a0=el('button','btn','＋ 新增體溫紀錄');
+    a0.onclick=function(){ openRecordForm('temp'); };
+    root.appendChild(a0);
+    return;
+  }
+
+  /* 距上次發燒 */
+  var lastFever=all.filter(function(p){return p.fever;})[0];
+  var head=el('div','card');
+  var fvTxt='沒有發燒紀錄 👏', fvSub='';
+  if(lastFever){
+    var ms=Date.now()-new Date(lastFever.at);
+    var dy=Math.floor(ms/86400000), hr=Math.floor(ms/3600000)%24;
+    fvTxt = dy>0 ? dy+' 天 '+hr+' 小時' : hr+' 小時';
+    fvSub = new Date(lastFever.at).toLocaleDateString('zh-TW')+' '+hhmm(lastFever.at)+
+      '　'+lastFever.v.toFixed(1)+'°C'+(lastFever.spot?'（'+lastFever.spot+'）':'');
+  }
+  head.innerHTML='<div style="font-size:12px;color:var(--mute)">距上次發燒</div>'+
+    '<div style="font-size:26px;font-weight:900;color:'+(lastFever?'var(--wine)':'#5B8C5A')+';margin-top:2px">'+
+    fvTxt+'</div>'+
+    (fvSub?'<div style="font-size:12.5px;color:var(--mute);margin-top:4px">'+esc(fvSub)+'</div>':'');
+  root.appendChild(head);
+
+  /* 區間切換 */
+  var pr2=el('div','pillRow');
+  [[7,'近 7 天'],[14,'近 14 天'],[30,'近 30 天'],[0,'全部']].forEach(function(o){
+    var b=el('button','pill'+(tempRange===o[0]?' on':''),o[1]);
+    b.onclick=function(){ tempRange=o[0]; render(); };
+    pr2.appendChild(b);
+  });
+  root.appendChild(pr2);
+
+  var since = tempRange ? Date.now()-tempRange*86400000 : 0;
+  var pts=all.filter(function(p){ return new Date(p.at)>=since; })
+             .slice().reverse();            /* 改成由舊到新畫線 */
+
+  if(!pts.length){
+    root.appendChild(el('div','empty','這段期間沒有體溫紀錄。'));
+    return;
+  }
+
+  /* 摘要 */
+  var vals=pts.map(function(p){return p.v;});
+  var sg=el('div','dayStats');
+  [[Math.max.apply(null,vals).toFixed(1)+'°','最高'],
+   [(vals.reduce(function(a,b){return a+b;},0)/vals.length).toFixed(1)+'°','平均'],
+   [String(pts.length),'量測次數'],
+   [String(pts.filter(function(p){return p.fever;}).length),'發燒次數']
+  ].forEach(function(s){
+    sg.appendChild(el('div','st','<div class="v">'+s[0]+'</div><div class="l">'+s[1]+'</div>'));
+  });
+  fitRows(sg,4);
+  root.appendChild(sg);
+
+  /* 折線圖 */
+  var c=el('div','card');
+  c.innerHTML=tempChart(pts);
+  var lg=el('div','legend');
+  lg.innerHTML='<span><i style="background:#850E35"></i>體溫</span>'+
+    '<span><i style="background:#D2523F"></i>發燒線 38.0°C</span>'+
+    '<span><i style="background:#F0D6C8"></i>發燒區間</span>';
+  c.appendChild(lg);
+  root.appendChild(c);
+
+  var add=el('button','btn','＋ 新增體溫紀錄');
+  add.onclick=function(){ openRecordForm('temp'); };
+  root.appendChild(add);
+
+  /* 歷次紀錄 */
+  root.appendChild(el('div','secTitle','歷次量測'));
+  var lc=el('div','card');
+  pts.slice().reverse().forEach(function(p,i){
+    var dt=new Date(p.at);
+    var row=el('button',null,'');
+    row.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:8px;'+
+      'width:100%;text-align:left;padding:11px 0;'+(i?'border-top:1px solid var(--line)':'');
+    row.innerHTML='<span style="min-width:0"><span style="font-size:13px;color:var(--mute)">'+
+      (dt.getMonth()+1)+'/'+dt.getDate()+' '+hhmm(p.at)+'</span>'+
+      (p.spot?'<span style="font-size:11.5px;color:var(--mute)">　'+esc(p.spot)+'</span>':'')+
+      (p.rec.note?'<div style="font-size:12px;color:var(--mute);margin-top:2px">'+esc(p.rec.note)+'</div>':'')+
+      '</span>'+
+      '<span style="flex:none;font-weight:800;font-size:15px;color:'+(p.fever?'#D2523F':'var(--ink)')+'">'+
+      p.v.toFixed(1)+'°'+(p.fever?' <span class="badge due">發燒</span>':'')+
+      ' <span style="color:var(--mute);font-weight:400">›</span></span>';
+    row.onclick=function(){ openRecordForm('temp',p.rec); };
+    lc.appendChild(row);
+  });
+  root.appendChild(lc);
+  root.appendChild(el('div','bandNote','發燒判定：耳溫／肛溫 ≥ 38.0°C，額溫／腋溫 ≥ 37.5°C。實際判讀請依醫師建議。'));
+}
+
+function tempChart(pts){
+  var W=320,H=190,L=30,R=8,T=12,B=24;
+  var plot=H-T-B, pw=W-L-R;
+  var vals=pts.map(function(p){return p.v;});
+  var lo=Math.min(36, Math.min.apply(null,vals)-0.3);
+  var hi=Math.max(39, Math.max.apply(null,vals)+0.3);
+  var t0=new Date(pts[0].at).getTime();
+  var t1=new Date(pts[pts.length-1].at).getTime();
+  var span=Math.max(1,t1-t0);
+  function X(at){ return pts.length===1 ? L+pw/2 : L+((new Date(at)-t0)/span)*pw; }
+  function Y(v){ return T+(1-(v-lo)/(hi-lo))*plot; }
+
+  var g='<svg class="chart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet">';
+  /* 發燒區間底色 */
+  var y38=Y(38);
+  g+='<rect x="'+L+'" y="'+T+'" width="'+pw+'" height="'+Math.max(0,y38-T).toFixed(1)+
+    '" fill="#D2523F" opacity=".08"/>';
+  /* 橫格線 */
+  for(var v=Math.ceil(lo*2)/2; v<=hi; v+=0.5){
+    var y=Y(v);
+    g+='<line x1="'+L+'" y1="'+y.toFixed(1)+'" x2="'+(W-R)+'" y2="'+y.toFixed(1)+
+      '" stroke="#F0E3DA" stroke-width="1"/>';
+    if(Math.abs(v*10%10)<0.01||v===38){
+      g+='<text x="'+(L-4)+'" y="'+(y+3).toFixed(1)+'" text-anchor="end" font-size="8.5" fill="#9A8189">'+
+        v.toFixed(0)+'</text>';
+    }
+  }
+  /* 38 度發燒線 */
+  g+='<line x1="'+L+'" y1="'+y38.toFixed(1)+'" x2="'+(W-R)+'" y2="'+y38.toFixed(1)+
+    '" stroke="#D2523F" stroke-width="1.2" stroke-dasharray="4 3"/>';
+  /* 折線 */
+  if(pts.length>1){
+    var dpath=pts.map(function(p,i){return (i?'L':'M')+X(p.at).toFixed(1)+' '+Y(p.v).toFixed(1);}).join('');
+    g+='<path d="'+dpath+'" fill="none" stroke="#850E35" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  }
+  pts.forEach(function(p){
+    g+='<circle cx="'+X(p.at).toFixed(1)+'" cy="'+Y(p.v).toFixed(1)+'" r="'+(p.fever?4:3)+
+      '" fill="'+(p.fever?'#D2523F':'#850E35')+'" stroke="#fff" stroke-width="1.5"/>';
+  });
+  /* 時間軸標籤 */
+  var marks = pts.length===1 ? [0] : [0, Math.floor((pts.length-1)/2), pts.length-1];
+  marks.forEach(function(i){
+    var d=new Date(pts[i].at);
+    g+='<text x="'+X(pts[i].at).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8" fill="#9A8189">'+
+      (d.getMonth()+1)+'/'+d.getDate()+'</text>';
+  });
+  return g+'</svg>';
 }
 
 function viewDental(root){
@@ -2320,9 +2508,11 @@ function viewHandoff(root){
   }
 
   var ta=el('textarea','in');
+  ta.rows=1;
   ta.placeholder=target?('回覆 '+(target.by||'某人')+'…')
-    :'留給爸媽或保母的話，例如：今天下午有點鼻塞，晚上七點吃過退燒藥。';
+    :'留給爸媽或保母的話…';
   c.appendChild(field(target?'回覆':'新留言',ta));
+  autoGrow(ta);
   c.appendChild(photoField(st));
   var send=el('button','btn',target?'送出回覆':'送出留言');
   send.onclick=function(){
