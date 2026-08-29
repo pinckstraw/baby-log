@@ -2324,7 +2324,7 @@ function viewStats(root){
   var days=[];
   for(var i=statRange-1;i>=0;i--){
     var d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-i);
-    days.push({d:d,key:dkey(d),sleep:0,naps:0,feed:0,ml:0,solid:0,poop:0,med:0});
+    days.push({d:d,key:dkey(d),sleep:0,naps:0,feed:0,ml:0,solid:0,poop:0,med:0,temp:0,all:0});
   }
   var byKey={}; days.forEach(function(x){byKey[x.key]=x;});
   kidRecords().forEach(function(r){
@@ -2335,14 +2335,17 @@ function viewStats(root){
         var a=Math.max(s,x.d), b=Math.min(e,new Date(x.d.getTime()+86400000));
         if(b>a) x.sleep+=(b-a)/3600000;
       });
-      var xs=byKey[dkey(new Date(r.startAt))]; if(xs) xs.naps++;
+      var xs=byKey[dkey(new Date(r.startAt))];
+      if(xs){ xs.naps++; xs.all++; }
       return;
     }
     var x=byKey[dkey(new Date(r.startAt))]; if(!x) return;
+    x.all++;
     if(r.type==='feed'){ x.feed++; if(d.method!=='親餵') x.ml+=parseFloat(d.amount)||0; }
     if(r.type==='poop') x.poop++;
     if(r.type==='solid') x.solid++;
     if(r.type==='med') x.med++;
+    if(r.type==='temp'){ var tv=parseFloat(d.value)||0; if(tv>x.temp) x.temp=tv; }
   });
 
   var nDays=days.length;
