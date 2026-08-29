@@ -159,6 +159,7 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 .ev .tm{font-size:15px;font-weight:800;color:var(--rose);font-variant-numeric:tabular-nums;flex:none}
 .ev .ttl{font-weight:800;font-size:16px;display:flex;align-items:center;gap:5px;color:var(--wine)}
 .ev .tem{font-size:19px;line-height:1}
+.ev .sub.tight{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14.5px}
 .ev .sub{font-size:15.5px;color:var(--wine);margin-top:5px;font-weight:600;line-height:1.4}
 .ev .note{font-size:14px;color:#AA5672;margin-top:4px;white-space:pre-wrap;word-break:break-word;line-height:1.45}
 .ev .carry{font-size:10.5px;font-weight:700;color:#7C6BB0;background:#F0EDF7;
@@ -498,6 +499,14 @@ function dur(ms){
   if(ms==null||isNaN(ms))return '';
   var m=Math.max(0,Math.round(ms/60000)), h=Math.floor(m/60);
   return h>0 ? h+' 小時 '+(m%60)+' 分' : m+' 分';
+}
+function durTight(ms){
+  var m=Math.max(0,Math.round(ms/60000)), h=Math.floor(m/60);
+  return h>0 ? h+'小時'+(m%60)+'分' : m+'分';
+}
+function durTight(ms){
+  var m=Math.max(0,Math.round(ms/60000)), h=Math.floor(m/60);
+  return h>0 ? h+'小時'+(m%60)+'分' : m+'分';
 }
 function durShort(ms){var m=Math.round(ms/60000);return Math.floor(m/60)+':'+pad(m%60);}
 function ageText(birth){
@@ -1907,7 +1916,7 @@ function viewToday(root){
     var s=new Date(r.startAt);
     var ongoing=!r.endAt;
     var e=ongoing?new Date():new Date(r.endAt);
-    var total=dur(e-s);
+    var total=durTight(e-s);
     var ev=el('div','ev');
     var dot=el('div','dot',T.em);
     dot.style.borderColor=T.color;
@@ -1916,11 +1925,11 @@ function viewToday(root){
     body.style.background='#FBF9FD';
     body.innerHTML='<div class="hd">'+
       '<span class="tm">'+(ongoing?'—':hhmm(r.endAt))+'</span>'+
-      '<span class="ttl"><span class="tem">'+T.em+'</span>睡眠<span class="carry">前一晚</span></span>'+
+      '<span class="ttl"><span class="tem">'+T.em+'</span>睡眠<span class="carry">昨晚</span></span>'+
       (r.by?'<span class="who">'+esc(r.by)+'</span>':'')+'</div>'+
-      '<div class="sub">'+(ongoing
-        ? '從前一晚 '+hhmm(r.startAt)+' 睡到現在，已 '+total
-        : '前一晚 '+hhmm(r.startAt)+' 睡到 '+hhmm(r.endAt)+'，共睡 '+total)+'</div>'+
+      '<div class="sub tight">'+(ongoing
+        ? hhmm(r.startAt)+' 睡到現在・已 '+durTight(e-s)
+        : hhmm(r.startAt)+'–'+hhmm(r.endAt)+'・共 '+durTight(e-s))+'</div>'+
       (r.note?'<div class="note">'+esc(r.note)+'</div>':'');
     body.onclick=function(){ openRecordForm('sleep',r); };
     ev.appendChild(dot); ev.appendChild(body); tl.appendChild(ev);
