@@ -129,6 +129,8 @@ h1,h2,h3{margin:0;font-family:"Noto Serif TC",serif;font-weight:700;letter-spaci
 .ev .note{font-size:12.5px;color:var(--mute);margin-top:4px;white-space:pre-wrap;word-break:break-word}
 .ev .who{font-size:11px;color:var(--mute);margin-top:5px}
 .ev img.thumb{width:100%;max-height:210px;object-fit:cover;border-radius:11px;margin-top:8px;background:var(--cream)}
+.daySwipe{transition:transform .18s ease-out,opacity .18s ease-out;
+  min-height:180px;touch-action:pan-y}
 .dateNav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .dateNav .d{font-weight:700;font-size:15px}
 .dateNav button{width:34px;height:34px;border-radius:50%;background:#fff;color:var(--wine);
@@ -1090,6 +1092,41 @@ function statValue(key){
   return '—';
 }
 
+/* 左右滑動切換日期（只在「今日」分頁的時間軸區域） */
+function shiftDay(n){
+  var d=new Date(S.day+'T12:00:00');
+  d.setDate(d.getDate()+n);
+  var today=new Date(); today.setHours(23,59,59,999);
+  if(d>today){ toast('已經是今天了'); return false; }
+  S.day=dkey(d); render(); return true;
+}
+function enableSwipe(node){
+  var x0=null,y0=null,lock=null;
+  node.addEventListener('touchstart',function(e){
+    if(e.touches.length!==1){ x0=null; return; }
+    x0=e.touches[0].clientX; y0=e.touches[0].clientY; lock=null;
+  },{passive:true});
+  node.addEventListener('touchmove',function(e){
+    if(x0==null) return;
+    var dx=e.touches[0].clientX-x0, dy=e.touches[0].clientY-y0;
+    if(lock===null && (Math.abs(dx)>10||Math.abs(dy)>10)){
+      lock = Math.abs(dx)>Math.abs(dy)*1.4 ? 'x' : 'y';
+    }
+    if(lock==='x'){
+      node.style.transform='translateX('+Math.max(-60,Math.min(60,dx*0.3))+'px)';
+      node.style.opacity=String(1-Math.min(0.25,Math.abs(dx)/600));
+    }
+  },{passive:true});
+  node.addEventListener('touchend',function(e){
+    node.style.transform=''; node.style.opacity='';
+    if(x0==null||lock!=='x'){ x0=null; return; }
+    var dx=(e.changedTouches[0].clientX)-x0;
+    x0=null;
+    if(Math.abs(dx)<55) return;
+    shiftDay(dx<0?1:-1);
+  },{passive:true});
+}
+
 function viewToday(root){
   var k=kid();
   /* 睡眠中卡片 */
@@ -1147,21 +1184,25 @@ function viewToday(root){
     },30000);
   }
 
-  /* 日期切換 */
+  /* 日期切換（可左右滑動） */
   root.appendChild(el('div','secTitle','時間軸'));
+  var swipe=el('div','daySwipe');
   var nav=el('div','dateNav');
   var prev=el('button',null,'‹'), next=el('button',null,'›');
   var isToday=S.day===dkey(new Date());
   var dd=new Date(S.day+'T12:00:00');
   var lbl=el('div','d',(isToday?'今天 ':'')+(dd.getMonth()+1)+' 月 '+dd.getDate()+' 日 ('+'日一二三四五六'[dd.getDay()]+')');
-  prev.onclick=function(){ var d=new Date(S.day+'T12:00:00'); d.setDate(d.getDate()-1); S.day=dkey(d); render(); };
-  next.onclick=function(){ var d=new Date(S.day+'T12:00:00'); d.setDate(d.getDate()+1); if(d>new Date())return; S.day=dkey(d); render(); };
+  prev.onclick=function(){ shiftDay(-1); };
+  next.onclick=function(){ shiftDay(1); };
+  if(isToday) next.style.opacity='.35';
   nav.appendChild(prev); nav.appendChild(lbl); nav.appendChild(next);
-  root.appendChild(nav);
+  swipe.appendChild(nav);
 
   var list=recordsOn(S.day);
   if(!list.length){
-    root.appendChild(el('div','empty','<span class="big">🌸</span>這天還沒有紀錄。<br>按右下角的 ＋ 開始記。'));
+    swipe.appendChild(el('div','empty','<span class="big">🌸</span>這天還沒有紀錄。<br>左右滑動可以切換日期。'));
+    root.appendChild(swipe);
+    enableSwipe(swipe);
     return;
   }
   var tl=el('div','tl');
@@ -1184,7 +1225,9 @@ function viewToday(root){
     body.onclick=function(){ openRecordForm(r.type,r); };
     ev.appendChild(dot); ev.appendChild(body); tl.appendChild(ev);
   });
-  root.appendChild(tl);
+  swipe.appendChild(tl);
+  root.appendChild(swipe);
+  enableSwipe(swipe);
 }
 
 /* ============================================================
