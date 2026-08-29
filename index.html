@@ -2372,20 +2372,34 @@ function viewVaccine(root){
 /* ============================================================
    11. 統計
    ============================================================ */
-var statRange=7;
+var statRange='week';
 var hourMetric='all';
 function viewStats(root){
   var pr=el('div','pillRow');
-  [[7,'近 7 天'],[14,'近 14 天'],[30,'近 30 天']].forEach(function(o){
+  [['week','本週'],['month','本月'],[30,'近 30 天']].forEach(function(o){
     var b=el('button','pill'+(statRange===o[0]?' on':''),o[1]);
     b.onclick=function(){ statRange=o[0]; S.keepScroll=true; render(); };
     pr.appendChild(b);
   });
   root.appendChild(pr);
 
-  var days=[];
-  for(var i=statRange-1;i>=0;i--){
-    var d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-i);
+  /* 本週＝週一起算；本月＝1 號起算；近 30 天＝往回推 */
+  var days=[], from, count;
+  var todayD=new Date(); todayD.setHours(0,0,0,0);
+  if(statRange==='week'){
+    from=new Date(todayD);
+    var dow=from.getDay();                 /* 0=週日 */
+    from.setDate(from.getDate()-((dow+6)%7));   /* 回推到本週一 */
+    count=7;
+  }else if(statRange==='month'){
+    from=new Date(todayD.getFullYear(),todayD.getMonth(),1);
+    count=new Date(todayD.getFullYear(),todayD.getMonth()+1,0).getDate();
+  }else{
+    from=new Date(todayD); from.setDate(from.getDate()-29);
+    count=30;
+  }
+  for(var i=0;i<count;i++){
+    var d=new Date(from); d.setDate(from.getDate()+i);
     days.push({d:d,key:dkey(d),sleep:0,naps:0,feed:0,ml:0,solid:0,poop:0,med:0,temp:0,all:0});
   }
   var byKey={}; days.forEach(function(x){byKey[x.key]=x;});
@@ -2409,6 +2423,14 @@ function viewStats(root){
     if(r.type==='med') x.med++;
     if(r.type==='temp'){ var tv=parseFloat(d.value)||0; if(tv>x.temp) x.temp=tv; }
   });
+
+  /* 每一天都標，欄位窄就只印日期數字 */
+  function axisLabel(x,n){
+    if(n<=7) return (x.d.getMonth()+1)+'/'+x.d.getDate();
+    if(n<=14) return (x.d.getMonth()+1)+'/'+x.d.getDate();
+    return String(x.d.getDate());
+  }
+  function axisFont(n){ return n<=7?8.5:n<=14?7:6.3; }
 
   var nDays=days.length;
   function avgOf(f){ return days.reduce(function(a,x){return a+(x[f]||0);},0)/nDays; }
@@ -2537,12 +2559,11 @@ function viewStats(root){
   }
 
   /* 日期標籤 */
-  var everyD=Math.ceil(nD/5);
   days.forEach(function(x,i){
-    if(i%everyD===0 || i===nD-1){
-      gg+='<text x="'+(GX(i)+colW/2).toFixed(1)+'" y="'+(GH-6)+
-        '" text-anchor="middle" font-size="7.5" fill="#9A8189">'+(x.d.getMonth()+1)+'/'+x.d.getDate()+'</text>';
-    }
+    var isMon = x.d.getDay()===1;
+    gg+='<text x="'+(GX(i)+colW/2).toFixed(1)+'" y="'+(GH-6)+
+      '" text-anchor="middle" font-size="'+axisFont(nD)+'" fill="'+(isMon?'#850E35':'#9A8189')+
+      '"'+(isMon?' font-weight="700"':'')+'>'+axisLabel(x,nD)+'</text>';
   });
   gg+='</svg>';
 
@@ -2575,7 +2596,6 @@ function viewStats(root){
     var bw=(W-gap*(n-1))/n;
     var g='<svg class="chart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="height:'+H+'px">';
     g+='<line x1="0" y1="'+(T+plot)+'" x2="'+W+'" y2="'+(T+plot)+'" stroke="#F0E3DA" stroke-width="1"/>';
-    var labelEvery=Math.ceil(n/6);
     days.forEach(function(x,i){
       var v=x[field]||0;
       var h=v>0?Math.max(2.5,(v/max)*plot):1.5;
@@ -2586,10 +2606,10 @@ function viewStats(root){
         g+='<text x="'+(xx+bw/2).toFixed(2)+'" y="'+(yy-3.5).toFixed(2)+
           '" text-anchor="middle" font-size="8" font-weight="700" fill="#850E35">'+fmt(v)+'</text>';
       }
-      if(i%labelEvery===0 || i===n-1){
-        g+='<text x="'+(xx+bw/2).toFixed(2)+'" y="'+(H-5)+
-          '" text-anchor="middle" font-size="8" fill="#9A8189">'+(x.d.getMonth()+1)+'/'+x.d.getDate()+'</text>';
-      }
+      var isMon2 = x.d.getDay()===1;
+      g+='<text x="'+(xx+bw/2).toFixed(2)+'" y="'+(H-5)+
+        '" text-anchor="middle" font-size="'+axisFont(n)+'" fill="'+(isMon2?'#850E35':'#9A8189')+
+        '"'+(isMon2?' font-weight="700"':'')+'>'+axisLabel(x,n)+'</text>';
     });
     g+='<defs><linearGradient id="bg1" x1="0" y1="0" x2="0" y2="1">'+
       '<stop offset="0" stop-color="#EE6983"/><stop offset="1" stop-color="#850E35"/>'+
@@ -2623,7 +2643,7 @@ function viewStats(root){
   bars(bdef.f, bdef.fmt, bdef.unit||'', bdef.lb);
 
   /* 用藥與體溫摘要 */
-  var since=new Date(); since.setDate(since.getDate()-statRange);
+  var since=new Date(days[0].d);
   var meds=kidRecords().filter(function(r){return r.type==='med' && new Date(r.startAt)>=since;});
   var temps=kidRecords().filter(function(r){return r.type==='temp' && new Date(r.startAt)>=since;});
   if(temps.length){
