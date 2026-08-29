@@ -390,14 +390,28 @@ var STATS = {
 var DEFAULT_QUICKS = ['sleep','feed','poop','med'];
 var DEFAULT_STATS  = ['sleepToday','feedCount','feedMl','poopCount'];
 
+/* 統計頁可自訂的圖表 */
+var STAT_CHARTS = {
+  sleep:  {lb:'每日睡眠總時數', avg:'平均睡眠(時)', fmt:function(v){return v.toFixed(1);}, unit:'單位：小時（跨夜睡眠會依實際落在哪一天分攤）'},
+  naps:   {lb:'每日睡眠次數',   avg:'平均睡眠(次)', fmt:function(v){return v;}},
+  feed:   {lb:'每日餵奶次數',   avg:'平均餵奶(次)', fmt:function(v){return v;}},
+  ml:     {lb:'每日奶量',       avg:'平均奶量(ml)', fmt:function(v){return v;}, unit:'單位：ml（親餵不計入）'},
+  solid:  {lb:'每日副食品次數', avg:'平均副食品(次)', fmt:function(v){return v;}},
+  poop:   {lb:'每日大便次數',   avg:'平均大便(次)', fmt:function(v){return v;}},
+  med:    {lb:'每日用藥次數',   avg:'平均用藥(次)', fmt:function(v){return v;}}
+};
+var DEFAULT_CHARTS = ['sleep','feed','poop'];
+
 var PREFS = {
   quicks: JSON.parse(localStorage.getItem('bl_quicks')||'null') || DEFAULT_QUICKS.slice(),
   stats:  JSON.parse(localStorage.getItem('bl_stats') ||'null') || DEFAULT_STATS.slice(),
+  charts: JSON.parse(localStorage.getItem('bl_charts')||'null') || DEFAULT_CHARTS.slice(),
   nurse:  localStorage.getItem('bl_nurseOn')==='1'
 };
 function savePrefs(){
   localStorage.setItem('bl_quicks',JSON.stringify(PREFS.quicks));
   localStorage.setItem('bl_stats',JSON.stringify(PREFS.stats));
+  localStorage.setItem('bl_charts',JSON.stringify(PREFS.charts));
   localStorage.setItem('bl_nurseOn',PREFS.nurse?'1':'0');
 }
 
@@ -1015,7 +1029,7 @@ function openMenu(){
     bd.appendChild(nt);
     bd.appendChild(el('div','bandNote','開啟後首頁多一顆「親餵」按鈕，可以左右邊分別計時、隨時換邊，餵完按一次記錄。'));
 
-    var b0=el('button','btn','自訂首頁快捷鍵與統計');
+    var b0=el('button','btn','自訂顯示項目');
     b0.onclick=function(){ closeSheet(); setTimeout(openCustomize,180); };
     bd.appendChild(b0);
     var b1=el('button','btn ghost','立即重新同步'); b1.style.marginTop='10px';
@@ -1041,8 +1055,8 @@ function openMenu(){
   });
 }
 function openCustomize(){
-  openSheet('自訂首頁',function(bd){
-    bd.appendChild(el('div','bandNote','勾選要出現在「今日」頁最上方的項目，順序就是你點選的順序。這份設定只影響這台裝置，每個人可以各自設定。'));
+  openSheet('自訂顯示項目',function(bd){
+    bd.appendChild(el('div','bandNote','勾選要顯示的項目，順序就是你點選的順序。這份設定只影響這台裝置，每個人可以各自設定。'));
 
     function picker(title,defs,list,max,hint){
       bd.appendChild(el('div','secTitle',title));
@@ -1082,12 +1096,14 @@ function openCustomize(){
       refresh();
     }
 
-    picker('快捷鍵',QUICKS,PREFS.quicks,8,'每列 4 個');
-    picker('統計數字',STATS,PREFS.stats,8,'每列 4 個');
+    picker('首頁快捷鍵',QUICKS,PREFS.quicks,8,'每列 4 個');
+    picker('首頁統計數字',STATS,PREFS.stats,8,'每列 4 個');
+    picker('統計頁圖表',STAT_CHARTS,PREFS.charts,7,'上方平均值也會跟著變');
 
     var reset=el('button','btn ghost','恢復預設');
     reset.onclick=function(){
       PREFS.quicks=DEFAULT_QUICKS.slice(); PREFS.stats=DEFAULT_STATS.slice();
+      PREFS.charts=DEFAULT_CHARTS.slice();
       savePrefs(); closeSheet(); render(); toast('已恢復預設');
     };
     bd.appendChild(reset);
@@ -2028,6 +2044,7 @@ function viewVaccine(root){
    11. 統計
    ============================================================ */
 var statRange=7;
+var hourMetric='sleep';
 function viewStats(root){
   var pr=el('div','pillRow');
   [[7,'近 7 天'],[14,'近 14 天'],[30,'近 30 天']].forEach(function(o){
@@ -2040,7 +2057,7 @@ function viewStats(root){
   var days=[];
   for(var i=statRange-1;i>=0;i--){
     var d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-i);
-    days.push({d:d,key:dkey(d),sleep:0,feed:0,ml:0,poop:0,med:0});
+    days.push({d:d,key:dkey(d),sleep:0,naps:0,feed:0,ml:0,solid:0,poop:0,med:0});
   }
   var byKey={}; days.forEach(function(x){byKey[x.key]=x;});
   kidRecords().forEach(function(r){
@@ -2051,24 +2068,31 @@ function viewStats(root){
         var a=Math.max(s,x.d), b=Math.min(e,new Date(x.d.getTime()+86400000));
         if(b>a) x.sleep+=(b-a)/3600000;
       });
+      var xs=byKey[dkey(new Date(r.startAt))]; if(xs) xs.naps++;
       return;
     }
     var x=byKey[dkey(new Date(r.startAt))]; if(!x) return;
     if(r.type==='feed'){ x.feed++; if(d.method!=='親餵') x.ml+=parseFloat(d.amount)||0; }
     if(r.type==='poop') x.poop++;
+    if(r.type==='solid') x.solid++;
     if(r.type==='med') x.med++;
   });
 
-  var avgSleep=days.reduce(function(a,x){return a+x.sleep;},0)/days.length;
-  var avgFeed=days.reduce(function(a,x){return a+x.feed;},0)/days.length;
-  var avgMl=days.reduce(function(a,x){return a+x.ml;},0)/days.length;
-  var avgPoop=days.reduce(function(a,x){return a+x.poop;},0)/days.length;
-
-  var sg=el('div','dayStats');
-  [[avgSleep.toFixed(1),'平均睡眠(時)'],[avgFeed.toFixed(1),'平均餵奶(次)'],
-   [avgMl?Math.round(avgMl):'—','平均奶量(ml)'],[avgPoop.toFixed(1),'平均大便(次)']
-  ].forEach(function(s){ sg.appendChild(el('div','st','<div class="v">'+s[0]+'</div><div class="l">'+s[1]+'</div>')); });
-  root.appendChild(sg);
+  /* 上方平均值：跟著使用者選的圖表走 */
+  var picked=PREFS.charts.filter(function(k){return STAT_CHARTS[k];});
+  if(picked.length){
+    var sg=el('div','dayStats');
+    picked.forEach(function(k){
+      var def=STAT_CHARTS[k];
+      var avg=days.reduce(function(a,x){return a+(x[k]||0);},0)/days.length;
+      var txt = k==='ml' ? (avg?Math.round(avg):'—')
+              : k==='sleep' ? avg.toFixed(1)
+              : avg.toFixed(1);
+      sg.appendChild(el('div','st','<div class="v">'+txt+'</div><div class="l">'+def.avg+'</div>'));
+    });
+    fitRows(sg,picked.length);
+    root.appendChild(sg);
+  }
 
   function bars(title,field,fmt,unit){
     root.appendChild(el('div','secTitle',title));
@@ -2120,9 +2144,92 @@ function viewStats(root){
     if(unit) c.appendChild(el('div','bandNote',unit));
     root.appendChild(c);
   }
-  bars('每日睡眠總時數','sleep',function(v){return v.toFixed(1);},'單位：小時（跨夜睡眠會依實際落在哪一天分攤）');
-  bars('每日餵奶次數','feed',function(v){return v;},'');
-  bars('每日大便次數','poop',function(v){return v;},'');
+  if(!picked.length){
+    root.appendChild(el('div','empty','<span class="big">📊</span>還沒有選擇要顯示的圖表。<br>右上角 ⋯ → 自訂顯示項目。'));
+  }
+  picked.forEach(function(k){
+    var def=STAT_CHARTS[k];
+    bars(def.lb, k, def.fmt, def.unit||'');
+  });
+
+  /* ---- 24 小時分布 ---- */
+  root.appendChild(el('div','secTitle','24 小時分布'));
+  var hourTypes=[['sleep','🌙 睡眠'],['feed','🍼 餵奶'],['poop','💩 大便'],
+                 ['solid','🥣 副食品'],['med','💊 用藥']];
+  var hpr=el('div','pillRow');
+  hourTypes.forEach(function(o){
+    var b=el('button','pill'+(hourMetric===o[0]?' on':''),o[1]);
+    b.onclick=function(){ hourMetric=o[0]; render(); };
+    hpr.appendChild(b);
+  });
+  root.appendChild(hpr);
+
+  var buckets=new Array(24).fill(0);
+  var rangeStart=days[0].d, rangeEnd=new Date(days[days.length-1].d.getTime()+86400000);
+  if(hourMetric==='sleep'){
+    /* 睡眠算「那個小時內睡了幾分鐘」，跨時段會自動切開 */
+    kidRecords().filter(function(r){return r.type==='sleep';}).forEach(function(r){
+      var s=new Date(r.startAt), e=r.endAt?new Date(r.endAt):new Date();
+      s=new Date(Math.max(s,rangeStart)); e=new Date(Math.min(e,rangeEnd));
+      if(e<=s) return;
+      var cur=new Date(s);
+      while(cur<e){
+        var nextHour=new Date(cur); nextHour.setMinutes(0,0,0); nextHour.setHours(nextHour.getHours()+1);
+        var seg=Math.min(nextHour,e)-cur;
+        buckets[cur.getHours()]+=seg/60000;
+        cur=new Date(Math.min(nextHour,e));
+      }
+    });
+  }else{
+    kidRecords().filter(function(r){return r.type===hourMetric;}).forEach(function(r){
+      var t=new Date(r.startAt);
+      if(t<rangeStart||t>=rangeEnd) return;
+      buckets[t.getHours()]++;
+    });
+  }
+
+  var hc=el('div','card');
+  var hmax=Math.max.apply(null,buckets)||1;
+  var HW=320,HH=118,HT=10,HB=20,hplot=HH-HT-HB;
+  var hgap=2, hbw=(HW-hgap*23)/24;
+  var hg='<svg class="chart" viewBox="0 0 '+HW+' '+HH+'" preserveAspectRatio="none" style="height:'+HH+'px">';
+  hg+='<line x1="0" y1="'+(HT+hplot)+'" x2="'+HW+'" y2="'+(HT+hplot)+'" stroke="#F0E3DA" stroke-width="1"/>';
+  /* 夜間區塊底色（22:00–06:00） */
+  [[0,6],[22,24]].forEach(function(z){
+    var x1=z[0]*(hbw+hgap), x2=z[1]*(hbw+hgap)-hgap;
+    hg+='<rect x="'+x1.toFixed(1)+'" y="'+HT+'" width="'+(x2-x1).toFixed(1)+'" height="'+hplot+
+      '" fill="#7C6BB0" opacity=".07"/>';
+  });
+  buckets.forEach(function(v,i){
+    var h=v>0?Math.max(2.5,(v/hmax)*hplot):1.5;
+    var x=i*(hbw+hgap), y=HT+hplot-h;
+    hg+='<rect x="'+x.toFixed(2)+'" y="'+y.toFixed(2)+'" width="'+hbw.toFixed(2)+'" height="'+h.toFixed(2)+
+      '" rx="2" fill="'+(v>0?'url(#hgrad)':'#F0E3DA')+'"/>';
+  });
+  [0,3,6,9,12,15,18,21].forEach(function(i){
+    hg+='<text x="'+(i*(hbw+hgap)+hbw/2).toFixed(1)+'" y="'+(HH-6)+
+      '" text-anchor="middle" font-size="8" fill="#9A8189">'+i+'</text>';
+  });
+  hg+='<defs><linearGradient id="hgrad" x1="0" y1="0" x2="0" y2="1">'+
+    '<stop offset="0" stop-color="#EE6983"/><stop offset="1" stop-color="#850E35"/>'+
+    '</linearGradient></defs></svg>';
+  var hbox=el('div',null,hg);
+  hbox.style.cssText='width:100%;overflow:hidden';
+  hc.appendChild(hbox);
+
+  var peak=buckets.indexOf(Math.max.apply(null,buckets));
+  var totalB=buckets.reduce(function(a,b){return a+b;},0);
+  var hnote=el('div','bandNote');
+  if(totalB>0){
+    hnote.textContent = hourMetric==='sleep'
+      ? '最常睡的時段是 '+peak+':00–'+((peak+1)%24)+':00，平均每天這個小時睡 '+
+        (buckets[peak]/days.length).toFixed(0)+' 分鐘。淺紫色是夜間 22:00–06:00。'
+      : '最常發生在 '+peak+':00–'+((peak+1)%24)+':00，這段期間共 '+buckets[peak]+' 次。淺紫色是夜間 22:00–06:00。';
+  }else{
+    hnote.textContent='這段期間沒有紀錄。';
+  }
+  hc.appendChild(hnote);
+  root.appendChild(hc);
 
   /* 用藥與體溫摘要 */
   var since=new Date(); since.setDate(since.getDate()-statRange);
