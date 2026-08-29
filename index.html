@@ -141,10 +141,11 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 .wakeBtn{background:#fff;color:var(--wine);border-radius:12px;padding:10px 15px;font-weight:800;font-size:14px;flex:none}
 
 .dayStats{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px}
-.st{background:#fff;border-radius:14px;padding:10px 5px;text-align:center;
+.st{background:#fff;border-radius:14px;padding:7px 5px 9px;text-align:center;
   box-shadow:0 2px 8px rgba(133,14,53,.05);flex:1 1 0;min-width:0}
+.st .ic{font-size:14px;line-height:1.3}
 .st .v{font-size:17px;font-weight:900;color:var(--wine);font-variant-numeric:tabular-nums;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
 .st .l{font-size:10.5px;color:var(--mute);margin-top:1px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
@@ -376,20 +377,20 @@ var QUICKS = {
 
 /* 首頁可自訂的統計格 */
 var STATS = {
-  sleepToday: {lb:'今日睡眠'},
-  naps:       {lb:'睡眠次數'},
-  awake:      {lb:'清醒時間'},
-  feedCount:  {lb:'餵奶次數'},
-  feedMl:     {lb:'今日奶量'},
-  breastMin:  {lb:'親餵時間'},
-  lastFeed:   {lb:'距上次餵奶'},
-  solidCount: {lb:'副食品'},
-  poopCount:  {lb:'大便次數'},
-  lastPoop:   {lb:'距上次大便'},
-  medCount:   {lb:'用藥次數'},
-  lastMed:    {lb:'距上次用藥'},
-  tempMax:    {lb:'最高體溫'},
-  lastFever:  {lb:'距上次發燒'}
+  sleepToday: {lb:'今日睡眠', em:'🌙', c:'#7C6BB0'},
+  naps:       {lb:'睡眠次數', em:'🌙', c:'#7C6BB0'},
+  awake:      {lb:'清醒時間', em:'☀️', c:'#E0913C'},
+  feedCount:  {lb:'餵奶次數', em:'🍼', c:'#EE6983'},
+  feedMl:     {lb:'今日奶量', em:'🍼', c:'#EE6983'},
+  breastMin:  {lb:'親餵時間', em:'🤱', c:'#EE6983'},
+  lastFeed:   {lb:'距上次餵奶', em:'🍼', c:'#EE6983'},
+  solidCount: {lb:'副食品', em:'🥣', c:'#E0913C'},
+  poopCount:  {lb:'大便次數', em:'💩', c:'#A9784B'},
+  lastPoop:   {lb:'距上次大便', em:'💩', c:'#A9784B'},
+  medCount:   {lb:'用藥次數', em:'💊', c:'#4C9AA8'},
+  lastMed:    {lb:'距上次用藥', em:'💊', c:'#4C9AA8'},
+  tempMax:    {lb:'最高體溫', em:'🌡️', c:'#D2523F'},
+  lastFever:  {lb:'距上次發燒', em:'🔥', c:'#D2523F'}
 };
 
 var DEFAULT_QUICKS = ['sleep','feed','poop','med'];
@@ -1763,7 +1764,13 @@ function viewToday(root){
   if(ss.length){
     var sg=el('div','dayStats');
     ss.forEach(function(key){
-      sg.appendChild(el('div','st','<div class="v" data-stat="'+key+'">'+statValue(key)+'</div><div class="l">'+STATS[key].lb+'</div>'));
+      var def=STATS[key];
+      var cell=el('div','st');
+      cell.style.borderTop='3px solid '+def.c;
+      cell.innerHTML='<div class="ic">'+def.em+'</div>'+
+        '<div class="v" data-stat="'+key+'" style="color:'+def.c+'">'+statValue(key)+'</div>'+
+        '<div class="l">'+def.lb+'</div>';
+      sg.appendChild(cell);
     });
     fitRows(sg,ss.length);
     root.appendChild(sg);
