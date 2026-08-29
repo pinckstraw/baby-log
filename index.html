@@ -396,14 +396,28 @@ var STATS = {
 var DEFAULT_QUICKS = ['sleep','feed','poop','med'];
 var DEFAULT_STATS  = ['sleepToday','feedCount','feedMl','poopCount'];
 
+/* 統計頁上方可切換的類別 */
+var STAT_TYPES = {
+  all:   {lb:'全部', em:'🗂'},
+  sleep: {lb:'睡眠', em:'🌙'},
+  feed:  {lb:'餵奶', em:'🍼'},
+  solid: {lb:'副食品', em:'🥣'},
+  poop:  {lb:'大便', em:'💩'},
+  med:   {lb:'用藥', em:'💊'},
+  temp:  {lb:'體溫', em:'🌡️'}
+};
+var DEFAULT_STAT_TYPES = ['all','sleep','feed','poop','med','temp'];
+
 var PREFS = {
   quicks: JSON.parse(localStorage.getItem('bl_quicks')||'null') || DEFAULT_QUICKS.slice(),
   stats:  JSON.parse(localStorage.getItem('bl_stats') ||'null') || DEFAULT_STATS.slice(),
+  types:  JSON.parse(localStorage.getItem('bl_statTypes')||'null') || DEFAULT_STAT_TYPES.slice(),
   nurse:  localStorage.getItem('bl_nurseOn')==='1'
 };
 function savePrefs(){
   localStorage.setItem('bl_quicks',JSON.stringify(PREFS.quicks));
   localStorage.setItem('bl_stats',JSON.stringify(PREFS.stats));
+  localStorage.setItem('bl_statTypes',JSON.stringify(PREFS.types));
   localStorage.setItem('bl_nurseOn',PREFS.nurse?'1':'0');
 }
 
@@ -1142,10 +1156,12 @@ function openCustomize(){
 
     picker('首頁快捷鍵',QUICKS,PREFS.quicks,8,'每列 4 個');
     picker('首頁統計數字',STATS,PREFS.stats,8,'每列 4 個');
+    picker('統計頁類別',STAT_TYPES,PREFS.types,7,'統計頁上方的切換鈕');
 
     var reset=el('button','btn ghost','恢復預設');
     reset.onclick=function(){
       PREFS.quicks=DEFAULT_QUICKS.slice(); PREFS.stats=DEFAULT_STATS.slice();
+      PREFS.types=DEFAULT_STAT_TYPES.slice();
       savePrefs(); closeSheet(); render(); toast('已恢復預設');
     };
     bd.appendChild(reset);
@@ -2395,12 +2411,13 @@ function viewStats(root){
 
   /* ---- 作息時間軸 ---- */
   root.appendChild(el('div','secTitle','作息時間軸'));
-  var hourTypes=[['all','🗂 全部'],['sleep','🌙 睡眠'],['feed','🍼 餵奶'],['poop','💩 大便'],
-                 ['solid','🥣 副食品'],['med','💊 用藥'],['temp','🌡️ 體溫']];
+  var hourTypes=PREFS.types.filter(function(k){return STAT_TYPES[k];});
+  if(!hourTypes.length) hourTypes=['all'];
+  if(hourTypes.indexOf(hourMetric)<0) hourMetric=hourTypes[0];
   var hpr=el('div','pillRow');
-  hourTypes.forEach(function(o){
-    var b=el('button','pill'+(hourMetric===o[0]?' on':''),o[1]);
-    b.onclick=function(){ hourMetric=o[0]; S.keepScroll=true; render(); };
+  hourTypes.forEach(function(k){
+    var b=el('button','pill'+(hourMetric===k?' on':''),STAT_TYPES[k].em+' '+STAT_TYPES[k].lb);
+    b.onclick=function(){ hourMetric=k; S.keepScroll=true; render(); };
     hpr.appendChild(b);
   });
   root.appendChild(hpr);
