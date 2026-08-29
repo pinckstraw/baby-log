@@ -2249,7 +2249,7 @@ function viewVaccine(root){
    11. 統計
    ============================================================ */
 var statRange=7;
-var hourMetric='sleep';
+var hourMetric='all';
 function viewStats(root){
   var pr=el('div','pillRow');
   [[7,'近 7 天'],[14,'近 14 天'],[30,'近 30 天']].forEach(function(o){
@@ -2359,8 +2359,8 @@ function viewStats(root){
 
   /* ---- 作息時間軸 ---- */
   root.appendChild(el('div','secTitle','作息時間軸'));
-  var hourTypes=[['sleep','🌙 睡眠'],['feed','🍼 餵奶'],['poop','💩 大便'],
-                 ['solid','🥣 副食品'],['med','💊 用藥']];
+  var hourTypes=[['all','🗂 全部'],['sleep','🌙 睡眠'],['feed','🍼 餵奶'],['poop','💩 大便'],
+                 ['solid','🥣 副食品'],['med','💊 用藥'],['temp','🌡️ 體溫']];
   var hpr=el('div','pillRow');
   hourTypes.forEach(function(o){
     var b=el('button','pill'+(hourMetric===o[0]?' on':''),o[1]);
@@ -2398,8 +2398,11 @@ function viewStats(root){
   days.forEach(function(x,i){ dayStart[x.key]=i; });
   var count=0;
 
-  if(hourMetric==='sleep'){
-    /* 睡眠畫成長條，跨夜自動切成兩段接在隔天頂端 */
+  var showAllTypes = hourMetric==='all';
+  var dotTypes = showAllTypes ? ['feed','solid','poop','med','temp','dental','vaccine','growth'] : [hourMetric];
+
+  /* 睡眠畫成長條，跨夜自動切成兩段接在隔天頂端 */
+  if(hourMetric==='sleep' || showAllTypes){
     kidRecords().filter(function(r){return r.type==='sleep';}).forEach(function(r){
       var s0=new Date(r.startAt), e0=r.endAt?new Date(r.endAt):new Date();
       var cur=new Date(s0);
@@ -2411,24 +2414,30 @@ function viewStats(root){
           var h1=cur.getHours()+cur.getMinutes()/60;
           var h2=segEnd.getTime()===mid.getTime()?24:(segEnd.getHours()+segEnd.getMinutes()/60);
           var y1=GY(h1), y2=GY(h2);
-          gg+='<rect x="'+(GX(i)+colW*0.18).toFixed(2)+'" y="'+y1.toFixed(1)+
-            '" width="'+(colW*0.64).toFixed(2)+'" height="'+Math.max(1.5,y2-y1).toFixed(1)+
-            '" rx="'+Math.min(2.5,colW*0.3).toFixed(1)+'" fill="#7C6BB0" opacity=".85"/>';
+          /* 顯示全部時睡眠退成底層寬帶，讓其他事件疊在上面 */
+          var pad = showAllTypes ? 0.06 : 0.18;
+          gg+='<rect x="'+(GX(i)+colW*pad).toFixed(2)+'" y="'+y1.toFixed(1)+
+            '" width="'+(colW*(1-pad*2)).toFixed(2)+'" height="'+Math.max(1.5,y2-y1).toFixed(1)+
+            '" rx="'+Math.min(2.5,colW*0.3).toFixed(1)+'" fill="#7C6BB0" opacity="'+(showAllTypes?'.32':'.85')+'"/>';
           count++;
         }
         cur=new Date(mid);
       }
     });
-  }else{
-    var col={feed:'#EE6983',poop:'#A9784B',solid:'#E0913C',med:'#4C9AA8',temp:'#D2523F'}[hourMetric]||'#850E35';
-    kidRecords().filter(function(r){return r.type===hourMetric;}).forEach(function(r){
+  }
+
+  if(hourMetric!=='sleep'){
+    var COLS={feed:'#EE6983',poop:'#A9784B',solid:'#E0913C',med:'#4C9AA8',
+              temp:'#D2523F',dental:'#4F7FBF',vaccine:'#8A6FBF',growth:'#5B8C5A'};
+    kidRecords().filter(function(r){return dotTypes.indexOf(r.type)>=0;}).forEach(function(r){
       var t=new Date(r.startAt);
       var i=dayStart[dkey(t)];
       if(i==null) return;
       var y=GY(t.getHours()+t.getMinutes()/60);
       var sz=Math.max(3.5,Math.min(7,colW*0.45));
       gg+='<rect x="'+(GX(i)+colW/2-sz/2).toFixed(2)+'" y="'+(y-sz/2).toFixed(2)+
-        '" width="'+sz.toFixed(1)+'" height="'+sz.toFixed(1)+'" rx="1.5" fill="'+col+'"/>';
+        '" width="'+sz.toFixed(1)+'" height="'+sz.toFixed(1)+'" rx="1.5" fill="'+(COLS[r.type]||'#850E35')+
+        '" stroke="#fff" stroke-width="'+(showAllTypes?0.8:0)+'"/>';
       count++;
     });
   }
@@ -2447,6 +2456,14 @@ function viewStats(root){
   var hbox=el('div',null,gg);
   hbox.style.cssText='width:100%;overflow:hidden';
   hc.appendChild(hbox);
+  if(count && showAllTypes){
+    var lgd=el('div','legend');
+    lgd.innerHTML=[['#7C6BB0','睡眠'],['#EE6983','餵奶'],['#E0913C','副食品'],['#A9784B','大便'],
+                   ['#4C9AA8','用藥'],['#D2523F','體溫'],['#4F7FBF','看牙'],['#8A6FBF','疫苗'],
+                   ['#5B8C5A','身高體重']]
+      .map(function(o){return '<span><i style="background:'+o[0]+'"></i>'+o[1]+'</span>';}).join('');
+    hc.appendChild(lgd);
+  }
   hc.appendChild(el('div','bandNote',
     count ? '直軸是一天 24 小時（0 在最上、24 在最下），每一欄是一天。淺紫色為夜間 22:00–06:00。'
           : '這段期間沒有紀錄。'));
