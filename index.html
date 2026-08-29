@@ -414,12 +414,16 @@ var PREFS = {
   quicks: JSON.parse(localStorage.getItem('bl_quicks')||'null') || DEFAULT_QUICKS.slice(),
   stats:  JSON.parse(localStorage.getItem('bl_stats') ||'null') || DEFAULT_STATS.slice(),
   types:  JSON.parse(localStorage.getItem('bl_statTypes')||'null') || DEFAULT_STAT_TYPES.slice(),
+  nightFrom: parseInt(localStorage.getItem('bl_nightFrom')||'21',10),
+  nightTo:   parseInt(localStorage.getItem('bl_nightTo')||'6',10),
   nurse:  localStorage.getItem('bl_nurseOn')==='1'
 };
 function savePrefs(){
   localStorage.setItem('bl_quicks',JSON.stringify(PREFS.quicks));
   localStorage.setItem('bl_stats',JSON.stringify(PREFS.stats));
   localStorage.setItem('bl_statTypes',JSON.stringify(PREFS.types));
+  localStorage.setItem('bl_nightFrom',String(PREFS.nightFrom));
+  localStorage.setItem('bl_nightTo',String(PREFS.nightTo));
   localStorage.setItem('bl_nurseOn',PREFS.nurse?'1':'0');
 }
 
@@ -1193,10 +1197,34 @@ function openCustomize(){
     picker('首頁統計數字',STATS,PREFS.stats,8,'每列 4 個');
     picker('統計頁類別',STAT_TYPES,PREFS.types,7,'統計頁上方的切換鈕');
 
+    bd.appendChild(el('div','secTitle','夜間時段'));
+    var nc=el('div','card');
+    function hourSelect(val,onch){
+      var sel=el('select','in');
+      for(var h=0;h<24;h++){
+        var o=el('option',null,pad(h)+':00');
+        o.value=h; if(h===val) o.selected=true;
+        sel.appendChild(o);
+      }
+      sel.onchange=function(){ onch(parseInt(sel.value,10)); };
+      return sel;
+    }
+    var nrow=el('div','row2');
+    nrow.appendChild(field('從',hourSelect(PREFS.nightFrom,function(v){
+      PREFS.nightFrom=v; savePrefs();
+    })));
+    nrow.appendChild(field('到',hourSelect(PREFS.nightTo,function(v){
+      PREFS.nightTo=v; savePrefs();
+    })));
+    nc.appendChild(nrow);
+    nc.appendChild(el('div','bandNote','作息時間軸上，這個區間會加上淺紫色底，方便分辨日夜。'));
+    bd.appendChild(nc);
+
     var reset=el('button','btn ghost','恢復預設');
     reset.onclick=function(){
       PREFS.quicks=DEFAULT_QUICKS.slice(); PREFS.stats=DEFAULT_STATS.slice();
       PREFS.types=DEFAULT_STAT_TYPES.slice();
+      PREFS.nightFrom=21; PREFS.nightTo=6;
       savePrefs(); closeSheet(); render(); toast('已恢復預設');
     };
     bd.appendChild(reset);
@@ -2509,7 +2537,6 @@ function viewStats(root){
   });
   fitRows(sg,tiles.length);
   root.appendChild(sg);
-  root.appendChild(el('div','bandNote','平均值只除以「有紀錄的天數」，沒記錄的日子不列入計算；尚未到來的日子也不算。'));
 
   /* ---- 作息時間軸 ---- */
   root.appendChild(el('div','secTitle','作息時間軸'));
@@ -2534,9 +2561,14 @@ function viewStats(root){
   function GY(h){ return GT+(h/24)*gh; }
 
   var gg='<svg class="chart" viewBox="0 0 '+GW+' '+GH+'" preserveAspectRatio="none" style="height:'+GH+'px">';
-  /* 夜間底色 22:00–06:00 */
-  gg+='<rect x="'+GL+'" y="'+GY(0)+'" width="'+gw+'" height="'+(GY(6)-GY(0)).toFixed(1)+'" fill="#7C6BB0" opacity=".06"/>';
-  gg+='<rect x="'+GL+'" y="'+GY(22)+'" width="'+gw+'" height="'+(GY(24)-GY(22)).toFixed(1)+'" fill="#7C6BB0" opacity=".06"/>';
+  /* 夜間底色（可在設定調整起迄） */
+  var nf=PREFS.nightFrom, nt=PREFS.nightTo;
+  if(nf>nt){                       /* 跨午夜，例如 21:00–06:00 */
+    gg+='<rect x="'+GL+'" y="'+GY(0)+'" width="'+gw+'" height="'+(GY(nt)-GY(0)).toFixed(1)+'" fill="#7C6BB0" opacity=".06"/>';
+    gg+='<rect x="'+GL+'" y="'+GY(nf)+'" width="'+gw+'" height="'+(GY(24)-GY(nf)).toFixed(1)+'" fill="#7C6BB0" opacity=".06"/>';
+  }else if(nf<nt){                 /* 同一天內，例如 12:00–14:00 */
+    gg+='<rect x="'+GL+'" y="'+GY(nf)+'" width="'+gw+'" height="'+(GY(nt)-GY(nf)).toFixed(1)+'" fill="#7C6BB0" opacity=".06"/>';
+  }
   /* 隔欄淡底 */
   days.forEach(function(x,i){
     if(i%2) gg+='<rect x="'+GX(i).toFixed(1)+'" y="'+GT+'" width="'+colW.toFixed(2)+'" height="'+gh+'" fill="#FCF5EE"/>';
@@ -2621,9 +2653,7 @@ function viewStats(root){
     }).join('');
     hc.appendChild(lgd);
   }
-  hc.appendChild(el('div','bandNote',
-    count ? '直軸是一天 24 小時（0 在最上、24 在最下），每一欄是一天。淺紫色為夜間 22:00–06:00。'
-          : '這段期間沒有紀錄。'));
+  if(!count) hc.appendChild(el('div','bandNote','這段期間沒有紀錄。'));
   root.appendChild(hc);
 
   function bars(field,fmt,unit,title){
