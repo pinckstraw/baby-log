@@ -111,11 +111,12 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 .nurseSide:active{transform:scale(.97)}
 
 .todayBtn{position:fixed;right:92px;bottom:calc(var(--safe-b) + 70px);z-index:39;
-  width:60px;height:60px;border-radius:50%;
+  width:60px;height:60px;border-radius:50%;padding:0;
   background:#fff;color:var(--wine);
-  display:grid;place-items:center;font-size:30px;line-height:1;
+  display:flex;align-items:center;justify-content:center;
   box-shadow:0 6px 18px rgba(133,14,53,.28);
   animation:todayIn .22s ease-out}
+.todayBtn svg{width:32px;height:32px;display:block}
 .todayBtn:active{transform:scale(.92)}
 @keyframes todayIn{from{opacity:0;transform:scale(.8)}
                    to{opacity:1;transform:scale(1)}}
@@ -881,8 +882,18 @@ function openRecordForm(type,rec){
   if(!k){ toast('請先新增寶寶'); return openChildForm(); }
   var d = rec?parseData(rec):{};
   var st = {photoId: rec?rec.photoId:null, dataUrl:null};
+  /* 新增時，日期用目前正在看的那一天（時間用現在的時分） */
+  function defaultStart(){
+    var now=new Date();
+    if(S.day && S.day!==dkey(now)){
+      var base=new Date(S.day+'T00:00:00');
+      base.setHours(now.getHours(),now.getMinutes(),0,0);
+      return base.toISOString();
+    }
+    return now.toISOString();
+  }
   var model = {
-    startAt: rec?rec.startAt:new Date().toISOString(),
+    startAt: rec?rec.startAt:defaultStart(),
     endAt: rec?rec.endAt:null,
     note: rec?(rec.note||''):'',
     d: d
@@ -1934,7 +1945,10 @@ function viewToday(root){
   var prev=el('button',null,'‹'), next=el('button',null,'›');
   var isToday=S.day===dkey(new Date());
   if(!isToday){
-    var back=el('button','todayBtn','↩');
+    var back=el('button','todayBtn',
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" '+
+      'stroke-linecap="round" stroke-linejoin="round">'+
+      '<path d="M11 5L4 12l7 7"/><path d="M4 12h11a5 5 0 015 5v2"/></svg>');
     back.title='回到今天';
     back.setAttribute('aria-label','回到今天');
     back.onclick=function(){ S.day=dkey(new Date()); render(); };
