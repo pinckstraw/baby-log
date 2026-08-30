@@ -1148,12 +1148,6 @@ function openMenu(){
     var b1=el('button','btn ghost','立即重新同步'); b1.style.marginTop='10px';
     b1.onclick=function(){ closeSheet(); pull().then(function(){toast('已更新');}); };
     bd.appendChild(b1);
-    var b3=el('button','btn ghost','清除本機照片快取'); b3.style.marginTop='10px';
-    b3.onclick=function(){
-      Object.keys(localStorage).forEach(function(k){ if(k.indexOf('bl_ph_')===0) localStorage.removeItem(k); });
-      photoCache={}; toast('已清除'); closeSheet();
-    };
-    bd.appendChild(b3);
     var b4=el('button','btn ghost','匯出目前寶寶的紀錄（CSV）'); b4.style.marginTop='10px';
     b4.onclick=function(){ exportCsv(); closeSheet(); };
     bd.appendChild(b4);
