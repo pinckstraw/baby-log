@@ -549,8 +549,8 @@ function ageDetail(birth){
   var anchor=new Date(b.getFullYear(),b.getMonth()+mo,b.getDate());
   var days=Math.floor((n-anchor)/86400000);
   if(mo<1) return Math.floor((n-b)/86400000)+' 天';
-  if(mo<12) return mo+' 個月 '+days+' 天';
-  return Math.floor(mo/12)+' 歲 '+(mo%12)+' 個月 '+days+' 天';
+  if(mo<12) return mo+' 月 '+days+' 天';
+  return Math.floor(mo/12)+' 歲 '+(mo%12)+' 月 '+days+' 天';
 }
 
 function ageText(birth){
