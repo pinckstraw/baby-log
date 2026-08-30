@@ -214,6 +214,9 @@ textarea.in{min-height:46px;resize:none;line-height:1.5;overflow:hidden}
 .seg button{border:1.5px solid var(--line);background:#fff;border-radius:11px;padding:9px 13px;
   font-size:14px;font-weight:600}
 .seg button.on{background:var(--rose);border-color:var(--rose);color:#fff}
+.seg button .cl{font-size:14px;font-weight:700;line-height:1.3}
+.seg button .ce{font-size:12.5px;font-weight:500;opacity:.7;margin-top:2px;
+  font-variant-numeric:tabular-nums}
 .photoBox{border:1.5px dashed var(--pink);border-radius:14px;padding:16px;text-align:center;
   color:var(--rose);font-weight:600;font-size:14px;background:#fff}
 .photoPrev{position:relative;margin-top:8px}
@@ -1222,7 +1225,8 @@ function openCustomize(){
     var cc=el('div','card');
     var cseg=el('div','seg');
     [['24 小時制',false,'20:11'],['12 小時制',true,'下午 8:11']].forEach(function(o){
-      var b=el('button',(PREFS.clock12===o[1]?'on':''),esc(o[0])+'　'+o[2]);
+      var b=el('button',(PREFS.clock12===o[1]?'on':''),
+        '<div class="cl">'+esc(o[0])+'</div><div class="ce">'+esc(o[2])+'</div>');
       b.type='button';
       b.style.flex='1';
       b.onclick=function(){
