@@ -540,6 +540,19 @@ function durShort(ms){
   var m=Math.max(0,Math.round(ms/60000)), h=Math.floor(m/60);
   return h>0 ? h+' 小時 '+(m%60)+' 分' : m+' 分';
 }
+/* 含天數的完整年齡，例如 2 歲 0 個月 15 天 */
+function ageDetail(birth){
+  if(!birth) return '';
+  var b=new Date(birth), n=new Date();
+  var mo=(n.getFullYear()-b.getFullYear())*12+(n.getMonth()-b.getMonth());
+  if(n.getDate()<b.getDate()) mo--;
+  var anchor=new Date(b.getFullYear(),b.getMonth()+mo,b.getDate());
+  var days=Math.floor((n-anchor)/86400000);
+  if(mo<1) return Math.floor((n-b)/86400000)+' 天';
+  if(mo<12) return mo+' 個月 '+days+' 天';
+  return Math.floor(mo/12)+' 歲 '+(mo%12)+' 個月 '+days+' 天';
+}
+
 function ageText(birth){
   if(!birth) return '';
   var b=new Date(birth), n=new Date();
@@ -3004,7 +3017,7 @@ function render(){
   if(k){
     $('#kidAv').textContent=k.name.slice(0,1);
     $('#kidNm').textContent=k.name;
-    $('#kidAg').textContent=ageText(k.birthdate);
+    $('#kidAg').textContent=ageDetail(k.birthdate);
   }else{
     $('#kidAv').textContent='＋'; $('#kidNm').textContent='尚未新增寶寶'; $('#kidAg').textContent='點這裡新增';
   }
