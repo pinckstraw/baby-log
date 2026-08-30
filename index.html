@@ -1912,7 +1912,6 @@ function viewToday(root){
     ss.forEach(function(key){
       var def=STATS[key];
       var cell=el('div','st');
-      cell.style.borderTop='3px solid '+def.c;
       cell.innerHTML='<div class="ic">'+def.em+'</div>'+
         '<div class="v" data-stat="'+key+'" style="color:'+def.c+'">'+statValue(key)+'</div>'+
         '<div class="l">'+def.lb+'</div>';
@@ -1985,7 +1984,6 @@ function viewToday(root){
     var dot=el('div','dot',T.em);
     dot.style.borderColor=T.color;
     var body=el('div','body');
-    body.style.borderLeft='4px solid '+T.color;
     body.style.background='#FBF9FD';
     body.innerHTML='<div class="hd">'+
       '<span class="tm">'+(ongoing?'—':hhmm(r.endAt))+'</span>'+
@@ -2006,7 +2004,6 @@ function viewToday(root){
     var dot=el('div','dot',T.em);
     dot.style.borderColor=T.color;
     var body=el('div','body');
-    body.style.borderLeft='4px solid '+T.color;
     body.innerHTML='<div class="hd">'+
       '<span class="tm">'+hhmm(r.startAt)+'</span>'+
       '<span class="ttl"><span class="tem">'+T.em+'</span>'+esc(T.lb)+'</span>'+
