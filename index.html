@@ -2694,8 +2694,8 @@ function viewStats(root){
 
   /* 摘要數字：跟著上面的類型切換 */
   var tiles;
-  if(hourMetric==='sleep'){
-    /* 平均清醒：這段期間內，每次睡醒到下次睡著之間的平均長度 */
+  /* 平均清醒：每次睡醒到下次睡著之間的平均長度 */
+  function awakeAvg(){
     var sl=kidRecords().filter(function(r){return r.type==='sleep';})
       .slice().sort(function(a,b){return new Date(a.startAt)-new Date(b.startAt);});
     var rangeA=days[0].d, rangeB=new Date(days[days.length-1].d.getTime()+86400000);
@@ -2708,10 +2708,14 @@ function viewStats(root){
       var gap=s1-e0;
       if(gap>0 && gap<24*3600000) gaps.push(gap);
     }
-    var avgAwake = gaps.length
-      ? gaps.reduce(function(a,b){return a+b;},0)/gaps.length/3600000 : 0;
+    if(!gaps.length) return null;
+    return gaps.reduce(function(a,b){return a+b;},0)/gaps.length/3600000;
+  }
+  var aw=awakeAvg();
+
+  if(hourMetric==='sleep'){
     tiles=[[avgOf('sleep').toFixed(1)+'h','平均睡眠'],[avgOf('naps').toFixed(1),'平均次數'],
-           [gaps.length?avgAwake.toFixed(1)+'h':'—','平均清醒'],
+           [aw!=null?aw.toFixed(1)+'h':'—','平均清醒'],
            [maxOf('sleep').toFixed(1)+'h','最長一天']];
   }else if(hourMetric==='feed'){
     var am=avgOf('ml');
@@ -2726,9 +2730,10 @@ function viewStats(root){
            [tvals.length?(tvals.reduce(function(a,b){return a+b;},0)/tvals.length).toFixed(1)+'°':'—','平均'],
            [tvals.length,'量測天數'],[fevCount,'發燒次數']];
   }else if(hourMetric==='all'){
-    tiles=[[sumOf('all'),'總筆數'],[daysWith('all')+'/'+nPast,'有紀錄天數'],
-           [avgOf('sleep').toFixed(1)+'h','平均睡眠'],
-           [maxOf('all'),'單日最多筆數']];
+    tiles=[[avgOf('sleep').toFixed(1)+'h','平均睡眠'],
+           [aw!=null?aw.toFixed(1)+'h':'—','平均清醒'],
+           [avgOf('poop').toFixed(1),'平均大便'],
+           [daysWith('all')+'/'+nPast,'有紀錄天數']];
   }else{
     tiles=[[avgOf(hourMetric).toFixed(1),'平均次數'],[sumOf(hourMetric),'總次數'],
            [maxOf(hourMetric),'最多一天'],[daysWith(hourMetric)+'/'+nPast,'有紀錄天數']];
