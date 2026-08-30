@@ -2557,7 +2557,8 @@ function viewStats(root){
   if(statRange==='month'){
     lab.innerHTML=from.getFullYear()+' 年 '+(from.getMonth()+1)+' 月';
   }else{
-    lab.innerHTML=(from.getMonth()+1)+'/'+from.getDate()+' – '+(last.getMonth()+1)+'/'+last.getDate()+
+    lab.innerHTML=(from.getMonth()+1)+' 月 '+from.getDate()+' 日 – '+
+      (last.getMonth()===from.getMonth() ? '' : (last.getMonth()+1)+' 月 ')+last.getDate()+' 日'+
       '<small>'+from.getFullYear()+' 年</small>';
   }
   pv.onclick=function(){ statOffset--; S.keepScroll=true; render(); };
