@@ -139,11 +139,13 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 .careCard.late .careBtn{background:#D2523F}
 
 .quickGrid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
-.quick{background:#fff;border-radius:16px;padding:11px 4px 9px;text-align:center;
-  box-shadow:0 2px 8px rgba(133,14,53,.05);flex:1 1 0}
-.quick .em{font-size:21px;display:block}
-.quick .lb{font-size:11px;font-weight:600;margin-top:4px;color:var(--ink);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.quick{background:#fff;border-radius:14px;padding:10px 3px;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  box-shadow:0 2px 8px rgba(133,14,53,.05);flex:1 1 0;min-width:0}
+.quick .em{font-size:17px;line-height:1;flex:none}
+.quick .lb{font-size:13.5px;font-weight:700;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:clip;
+  min-width:0;letter-spacing:-.02em}
 .quick:active{background:var(--cream)}
 .sleepNow{background:linear-gradient(135deg,var(--rose),var(--wine));color:#fff;
   border-radius:18px;padding:14px 16px;margin-bottom:12px;display:flex;
@@ -391,7 +393,6 @@ var QUICKS = {
   dental:  {em:'🦷', lb:'看牙齒'},
   vaccine: {em:'💉', lb:'疫苗'}
 };
-
 /* 首頁可自訂的統計格 */
 var STATS = {
   sleepToday: {lb:'今日睡眠', em:'🌙', c:'#7C6BB0'},
