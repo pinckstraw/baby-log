@@ -169,12 +169,14 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
   background:#fff;border:2px solid var(--pink);display:grid;place-items:center;font-size:12px}
 .ev .body{background:#fff;border-radius:15px;padding:12px 14px;box-shadow:0 2px 8px rgba(133,14,53,.05)}
 .ev .hd{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;min-width:0}
-.ev .tm{font-size:15px;font-weight:800;color:var(--rose);font-variant-numeric:tabular-nums;flex:none}
+.ev .tm{font-size:14.5px;font-weight:800;color:var(--rose);
+  font-variant-numeric:tabular-nums;flex:none;white-space:nowrap}
 .ev .ttl{font-weight:800;font-size:16px;display:flex;align-items:center;gap:5px;
   color:var(--wine);flex:none;white-space:nowrap}
 .ev .tem{font-size:19px;line-height:1}
-.ev .sub.tight{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14.5px}
-.ev .sub{font-size:15.5px;color:var(--wine);margin-top:5px;font-weight:600;line-height:1.4}
+.ev .sub.tight{font-size:14.5px}
+.ev .sub{font-size:15.5px;color:var(--wine);margin-top:5px;font-weight:600;line-height:1.4;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .ev .note{font-size:14px;color:#AA5672;margin-top:4px;white-space:pre-wrap;word-break:break-word;line-height:1.45}
 .ev .carry{font-size:10.5px;font-weight:700;color:#7C6BB0;background:#F0EDF7;
   border-radius:6px;padding:2px 6px;margin-left:5px}
@@ -1330,7 +1332,7 @@ function exportCsv(){
 function summary(r){
   var d=parseData(r);
   switch(r.type){
-    case 'sleep': return r.endAt ? '睡了 '+dur(new Date(r.endAt)-new Date(r.startAt))+'（'+hhmm(r.startAt)+'–'+hhmm(r.endAt)+'）' : '睡眠中…';
+    case 'sleep': return r.endAt ? '睡了 '+dur(new Date(r.endAt)-new Date(r.startAt)) : '睡眠中…';
     case 'feed': {
       if(d.L!=null || d.R!=null){
         var seg=[];
@@ -2072,12 +2074,12 @@ function viewToday(root){
     var body=el('div','body');
     body.style.background='#F3F0FA';
     body.innerHTML='<div class="hd">'+
-      '<span class="tm">'+(ongoing?'—':hhmm(r.endAt))+'</span>'+
+      '<span class="tm">'+(ongoing?hhmm(r.startAt)+'–':hhmm(r.startAt)+'–'+hhmm(r.endAt))+'</span>'+
       '<span class="ttl"><span class="tem">'+T.em+'</span>睡眠<span class="carry">昨晚</span></span>'+
       (r.by?'<span class="who">'+esc(r.by)+'</span>':'')+'</div>'+
       '<div class="sub tight">'+(ongoing
-        ? '睡眠中…（'+hhmm(r.startAt)+' 起，已 '+dur(e-s)+'）'
-        : '睡了 '+dur(e-s)+'（'+hhmm(r.startAt)+'–'+hhmm(r.endAt)+'）')+'</div>'+
+        ? '睡眠中…已 '+dur(e-s)
+        : '睡了 '+dur(e-s))+gapChip(r)+'</div>'+
       (r.note?'<div class="note">'+esc(r.note)+'</div>':'');
     body.onclick=function(){ openRecordForm('sleep',r); };
     ev.appendChild(dot); ev.appendChild(body); tl.appendChild(ev);
@@ -2091,11 +2093,13 @@ function viewToday(root){
     dot.style.borderColor=T.color;
     var body=el('div','body');
     body.innerHTML='<div class="hd">'+
-      '<span class="tm">'+hhmm(r.startAt)+'</span>'+
+      '<span class="tm">'+(r.type==='sleep'&&r.endAt
+        ? hhmm(r.startAt)+'–'+hhmm(r.endAt)
+        : hhmm(r.startAt))+'</span>'+
       '<span class="ttl"><span class="tem">'+T.em+'</span>'+esc(T.lb)+'</span>'+
-      gapChip(r)+
       (r.by?'<span class="who">'+esc(r.by)+'</span>':'')+'</div>'+
-      (summary(r)?'<div class="sub">'+esc(summary(r))+'</div>':'')+
+      ((summary(r)||gapChip(r))
+        ? '<div class="sub">'+esc(summary(r))+gapChip(r)+'</div>' : '')+
       (r.note?'<div class="note">'+esc(r.note)+'</div>':'');
     if(r.photoId){
       var im=el('img','thumb'); im.alt='紀錄照片'; im.loading='lazy';
