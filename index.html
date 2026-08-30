@@ -110,6 +110,16 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 .nurseSide.on .lb,.nurseSide.on .tm{color:#fff}
 .nurseSide:active{transform:scale(.97)}
 
+.todayBtn{position:fixed;right:88px;bottom:calc(var(--safe-b) + 78px);z-index:39;
+  width:44px;height:44px;border-radius:50%;
+  background:#fff;color:var(--wine);
+  display:grid;place-items:center;font-size:20px;line-height:1;
+  box-shadow:0 4px 14px rgba(133,14,53,.25);
+  animation:todayIn .22s ease-out}
+.todayBtn:active{transform:scale(.92)}
+@keyframes todayIn{from{opacity:0;transform:scale(.8)}
+                   to{opacity:1;transform:scale(1)}}
+
 .careCard{display:flex;align-items:center;gap:11px;background:#fff;border-radius:16px;
   padding:12px 14px;margin-bottom:10px;border-left:4px solid #4F7FBF;
   box-shadow:0 2px 10px rgba(133,14,53,.06)}
@@ -1876,6 +1886,13 @@ function viewToday(root){
   var nav=el('div','dateNav');
   var prev=el('button',null,'‹'), next=el('button',null,'›');
   var isToday=S.day===dkey(new Date());
+  if(!isToday){
+    var back=el('button','todayBtn','↩');
+    back.title='回到今天';
+    back.setAttribute('aria-label','回到今天');
+    back.onclick=function(){ S.day=dkey(new Date()); render(); };
+    root.appendChild(back);
+  }
   var dd=new Date(S.day+'T12:00:00');
   var yest=new Date(); yest.setDate(yest.getDate()-1);
   var relative = isToday ? '今天' : (dkey(yest)===S.day ? '昨天' : '');
@@ -2698,12 +2715,7 @@ function viewStats(root){
     box.style.cssText='width:100%;overflow:hidden';
     c.appendChild(box);
     var withData=days.map(function(x){return x[field]||0;}).filter(function(v){return v>0;});
-    var sm=el('div','bandNote');
-    sm.textContent = withData.length
-      ? '最高 '+fmt(Math.max.apply(null,withData))+'　最低 '+fmt(Math.min.apply(null,withData))+
-        '　有紀錄 '+withData.length+'/'+n+' 天'
-      : '這段期間沒有紀錄';
-    c.appendChild(sm);
+    if(!withData.length) c.appendChild(el('div','bandNote','這段期間沒有紀錄'));
     if(unit) c.appendChild(el('div','bandNote',unit));
     root.appendChild(c);
   }
