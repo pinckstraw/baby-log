@@ -2695,8 +2695,24 @@ function viewStats(root){
   /* 摘要數字：跟著上面的類型切換 */
   var tiles;
   if(hourMetric==='sleep'){
+    /* 平均清醒：這段期間內，每次睡醒到下次睡著之間的平均長度 */
+    var sl=kidRecords().filter(function(r){return r.type==='sleep';})
+      .slice().sort(function(a,b){return new Date(a.startAt)-new Date(b.startAt);});
+    var rangeA=days[0].d, rangeB=new Date(days[days.length-1].d.getTime()+86400000);
+    var gaps=[];
+    for(var gi=0;gi<sl.length-1;gi++){
+      var cur=sl[gi], nxt=sl[gi+1];
+      if(!cur.endAt) continue;
+      var e0=new Date(cur.endAt), s1=new Date(nxt.startAt);
+      if(e0<rangeA || e0>=rangeB) continue;
+      var gap=s1-e0;
+      if(gap>0 && gap<24*3600000) gaps.push(gap);
+    }
+    var avgAwake = gaps.length
+      ? gaps.reduce(function(a,b){return a+b;},0)/gaps.length/3600000 : 0;
     tiles=[[avgOf('sleep').toFixed(1)+'h','平均睡眠'],[avgOf('naps').toFixed(1),'平均次數'],
-           [maxOf('sleep').toFixed(1)+'h','最長一天'],[sumOf('naps'),'總次數']];
+           [gaps.length?avgAwake.toFixed(1)+'h':'—','平均清醒'],
+           [maxOf('sleep').toFixed(1)+'h','最長一天']];
   }else if(hourMetric==='feed'){
     var am=avgOf('ml');
     tiles=[[avgOf('feed').toFixed(1),'平均次數'],[am?Math.round(am)+'ml':'—','平均奶量'],
