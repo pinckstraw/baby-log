@@ -52,7 +52,7 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 #syncDot.err{background:#ff8f8f}
 @keyframes pulse{50%{opacity:.3}}
 
-#main{padding:calc(var(--safe-t) + 78px) 14px calc(var(--safe-b) + 168px)}
+#main{padding:calc(var(--safe-t) + 78px) 14px calc(var(--safe-b) + 168px);min-height:100vh}
 
 #tabs{
   position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;
@@ -1642,6 +1642,31 @@ function shiftDay(n){
   if(d>today){ toast('已經是今天了'); return false; }
   S.day=dkey(d); render(); return true;
 }
+/* 依目前分頁決定左右滑要做什麼 */
+function swipeNav(dir){
+  if(S.tab==='today'){ shiftDay(dir); return; }
+  var list, cur, apply;
+  if(S.tab==='growth'){
+    list=METRICS.map(function(m){return m.k;}); cur=gMetric;
+    apply=function(v){ gMetric=v; };
+  }else if(S.tab==='vaccine'){
+    list=['vaccine','dental','temp']; cur=careSub;
+    apply=function(v){ careSub=v; };
+  }else if(S.tab==='stats'){
+    list=PREFS.types.filter(function(k){return STAT_TYPES[k];});
+    if(!list.length) list=['all'];
+    cur=hourMetric;
+    apply=function(v){ hourMetric=v; };
+  }else return;                       /* 交接頁不切換 */
+  var i=list.indexOf(cur);
+  if(i<0) i=0;
+  var n=i+dir;
+  if(n<0 || n>=list.length) return;   /* 到頭就停住，不繞回去 */
+  apply(list[n]);
+  S.keepScroll=true;
+  render();
+}
+
 function enableSwipe(node,animate){
   var x0=null,y0=null,lock=null;
   node.addEventListener('touchstart',function(e){
@@ -1665,9 +1690,9 @@ function enableSwipe(node,animate){
     var dx=(e.changedTouches[0].clientX)-x0;
     x0=null;
     if(Math.abs(dx)<55) return;
-    if(e._blSwiped) return;      /* 內層已處理過，外層不再重複換日 */
+    if(e._blSwiped) return;      /* 內層已處理過，外層不再重複 */
     e._blSwiped=true;
-    shiftDay(dx<0?1:-1);
+    swipeNav(dx<0?1:-1);
   },{passive:true});
 }
 
@@ -1916,7 +1941,6 @@ function viewToday(root){
     swipe.appendChild(el('div','empty','<span class="big">🌸</span>這天還沒有紀錄。<br>左右滑動可以切換日期。'));
     root.appendChild(swipe);
     enableSwipe(swipe);
-    enableSwipe(root,false);
     return;
   }
   var tl=el('div','tl');
@@ -1972,7 +1996,6 @@ function viewToday(root){
   swipe.appendChild(tl);
   root.appendChild(swipe);
   enableSwipe(swipe);
-  enableSwipe(root,false);
 }
 
 /* ============================================================
@@ -2947,6 +2970,7 @@ document.querySelectorAll('#tabs button').forEach(function(b){
 $('#fab').onclick=openTypePicker;
 $('#kidBtn').onclick=function(){ S.children.length?openKidPicker():openChildForm(); };
 $('#searchBtn').onclick=openSearch;
+enableSwipe($('#main'),false);   /* 整頁可滑，只綁一次 */
 $('#menuBtn').onclick=openMenu;
 $('#syncBtn').onclick=function(){ pull().then(function(){toast('已更新');}); };
 $('#lightbox').onclick=function(){ $('#lightbox').classList.remove('on'); };
