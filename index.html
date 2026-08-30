@@ -180,7 +180,7 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 .daySwipe{transition:transform .18s ease-out,opacity .18s ease-out;
   min-height:62vh;touch-action:pan-y}
 .dateNav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.dateNav .d{font-weight:700;font-size:21px;color:#D6486A;letter-spacing:.01em}
+.dateNav .d{font-weight:700;font-size:19px;color:#D6486A;letter-spacing:0;white-space:nowrap}
 .dateNav .d small{display:block;font-size:11.5px;font-weight:600;color:var(--rose);
   letter-spacing:.12em;margin-top:1px}
 .dateNav button{width:36px;height:36px;border-radius:50%;background:#fff;color:var(--rose);
@@ -427,6 +427,7 @@ var PREFS = {
   types:  JSON.parse(localStorage.getItem('bl_statTypes')||'null') || DEFAULT_STAT_TYPES.slice(),
   nightFrom: parseInt(localStorage.getItem('bl_nightFrom')||'21',10),
   nightTo:   parseInt(localStorage.getItem('bl_nightTo')||'6',10),
+  clock12: localStorage.getItem('bl_clock12')==='1',
   nurse:  localStorage.getItem('bl_nurseOn')==='1'
 };
 function savePrefs(){
@@ -435,6 +436,7 @@ function savePrefs(){
   localStorage.setItem('bl_statTypes',JSON.stringify(PREFS.types));
   localStorage.setItem('bl_nightFrom',String(PREFS.nightFrom));
   localStorage.setItem('bl_nightTo',String(PREFS.nightTo));
+  localStorage.setItem('bl_clock12',PREFS.clock12?'1':'0');
   localStorage.setItem('bl_nurseOn',PREFS.nurse?'1':'0');
 }
 
@@ -503,7 +505,13 @@ function pad(n){return n<10?'0'+n:''+n;}
 function uuid(){return 'x'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
 function toast(m){var t=$('#toast'); t.textContent=m; t.classList.add('on'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('on');},2200);}
 function dkey(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
-function hhmm(iso){var d=new Date(iso); return pad(d.getHours())+':'+pad(d.getMinutes());}
+function hhmm(iso){
+  var d=new Date(iso), h=d.getHours(), m=pad(d.getMinutes());
+  if(!PREFS.clock12) return pad(h)+':'+m;
+  var ap = h<12 ? '上午' : '下午';
+  var h12 = h%12; if(h12===0) h12=12;
+  return ap+' '+h12+':'+m;
+}
 function localInput(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());}
 function dur(ms){
   if(ms==null||isNaN(ms))return '';
@@ -1210,6 +1218,23 @@ function openCustomize(){
     picker('首頁統計數字',STATS,PREFS.stats,8,'每列 4 個');
     picker('統計頁類別',STAT_TYPES,PREFS.types,7,'統計頁上方的切換鈕');
 
+    bd.appendChild(el('div','secTitle','時間顯示'));
+    var cc=el('div','card');
+    var cseg=el('div','seg');
+    [['24 小時制',false,'20:11'],['12 小時制',true,'下午 8:11']].forEach(function(o){
+      var b=el('button',(PREFS.clock12===o[1]?'on':''),esc(o[0])+'　'+o[2]);
+      b.type='button';
+      b.style.flex='1';
+      b.onclick=function(){
+        PREFS.clock12=o[1]; savePrefs();
+        cseg.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});
+        b.classList.add('on');
+      };
+      cseg.appendChild(b);
+    });
+    cc.appendChild(cseg);
+    bd.appendChild(cc);
+
     bd.appendChild(el('div','secTitle','夜間時段'));
     var nc=el('div','card');
     function hourSelect(val,onch){
@@ -1237,7 +1262,7 @@ function openCustomize(){
     reset.onclick=function(){
       PREFS.quicks=DEFAULT_QUICKS.slice(); PREFS.stats=DEFAULT_STATS.slice();
       PREFS.types=DEFAULT_STAT_TYPES.slice();
-      PREFS.nightFrom=21; PREFS.nightTo=6;
+      PREFS.nightFrom=21; PREFS.nightTo=6; PREFS.clock12=false;
       savePrefs(); closeSheet(); render(); toast('已恢復預設');
     };
     bd.appendChild(reset);
@@ -1917,7 +1942,7 @@ function viewToday(root){
   var relative = isToday ? '今天' : (dkey(yest)===S.day ? '昨天' : '');
   var lbl=el('div','d');
   lbl.style.textAlign='center';
-  lbl.innerHTML=(dd.getMonth()+1)+' 月 '+dd.getDate()+' 日'+
+  lbl.innerHTML=dd.getFullYear()+' 年 '+(dd.getMonth()+1)+' 月 '+dd.getDate()+' 日'+
     '<small>'+(relative?relative+'・':'')+'星期'+'日一二三四五六'[dd.getDay()]+'</small>';
   prev.onclick=function(){ shiftDay(-1); };
   next.onclick=function(){ shiftDay(1); };
