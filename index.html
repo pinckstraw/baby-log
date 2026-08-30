@@ -1319,7 +1319,13 @@ function summary(r){
       return (d.method||'')+(d.amount?' '+d.amount+(d.method==='親餵'?' 分鐘':' ml'):'');
     }
     case 'solid': return (d.food||'副食品')+(d.accept?'・'+d.accept:'');
-    case 'poop': return [d.texture,d.color?d.color+'色':'',d.amount?'量'+d.amount:''].filter(Boolean).join('・');
+    case 'poop': {
+      var pp=[];
+      if(d.texture && d.texture!=='正常') pp.push(d.texture);
+      if(d.color) pp.push(d.color+'色');
+      if(d.amount && d.amount!=='中') pp.push('量'+d.amount);
+      return pp.join('・');
+    }
     case 'med': return d.name ? (d.name+(d.dose?' '+d.dose:'')+(d.reason?'（'+d.reason+'）':'')) : '';
     case 'temp': return (d.value||'')+' °C'+(d.spot?'・'+d.spot:'');
     case 'growth': return [d.height?'身高 '+d.height+' cm':'',d.weight?'體重 '+d.weight+' kg':'',d.head?'頭圍 '+d.head+' cm':''].filter(Boolean).join('・');
