@@ -168,9 +168,10 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 .ev .dot{position:absolute;left:-32px;top:12px;width:24px;height:24px;border-radius:50%;
   background:#fff;border:2px solid var(--pink);display:grid;place-items:center;font-size:12px}
 .ev .body{background:#fff;border-radius:15px;padding:12px 14px;box-shadow:0 2px 8px rgba(133,14,53,.05)}
-.ev .hd{display:flex;align-items:center;gap:9px}
+.ev .hd{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;min-width:0}
 .ev .tm{font-size:15px;font-weight:800;color:var(--rose);font-variant-numeric:tabular-nums;flex:none}
-.ev .ttl{font-weight:800;font-size:16px;display:flex;align-items:center;gap:5px;color:var(--wine)}
+.ev .ttl{font-weight:800;font-size:16px;display:flex;align-items:center;gap:5px;
+  color:var(--wine);flex:none;white-space:nowrap}
 .ev .tem{font-size:19px;line-height:1}
 .ev .sub.tight{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14.5px}
 .ev .sub{font-size:15.5px;color:var(--wine);margin-top:5px;font-weight:600;line-height:1.4}
@@ -179,7 +180,7 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
   border-radius:6px;padding:2px 6px;margin-left:5px}
 .ev .gap{font-size:11px;font-weight:600;color:var(--mute);
   background:var(--cream);border-radius:6px;padding:2px 7px;
-  margin-left:7px;white-space:nowrap;flex:none}
+  white-space:nowrap;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .ev .who{font-size:11.5px;color:var(--wine);margin-left:auto;flex:none;
   background:var(--cream);border-radius:7px;padding:2px 7px;font-weight:600;opacity:.75}
 .ev img.thumb{width:100%;max-height:210px;object-fit:cover;border-radius:11px;margin-top:8px;background:var(--cream)}
@@ -1636,6 +1637,15 @@ function fitRows(container,n){
 }
 
 /* 卡片上的「距上次」用完整寫法，格子窄的統計格仍用 agoShort */
+function agoTight(ms){
+  var m=Math.max(0,Math.round(ms/60000));
+  if(m<60) return m+'分';
+  var h=Math.floor(m/60);
+  if(h<24) return h+'時'+pad(m%60)+'分';
+  var d=Math.floor(h/24);
+  return d+'天'+(h%24)+'時';
+}
+
 function agoLong(ms){
   var m=Math.max(0,Math.round(ms/60000));
   if(m<60) return m+' 分';
@@ -2037,11 +2047,12 @@ function viewToday(root){
     var idx=same.findIndex(function(x){return x.id===r.id;});
     var prev=same[idx+1];
     if(!prev) return '';
-    /* 睡眠算「上次睡醒到這次入睡」，其他算兩次發生的間隔 */
-    var from = (r.type==='sleep' && prev.endAt) ? new Date(prev.endAt) : new Date(prev.startAt);
+    /* 睡眠＝上次睡醒到這次入睡（醒著多久）；其他＝兩次發生的間隔 */
+    var isSleep = r.type==='sleep' && prev.endAt;
+    var from = isSleep ? new Date(prev.endAt) : new Date(prev.startAt);
     var ms=new Date(r.startAt)-from;
     if(ms<=0) return '';
-    return '<span class="gap">距上次 '+agoLong(ms)+'</span>';
+    return '<span class="gap">'+(isSleep?'☀ ':'↺ ')+agoTight(ms)+'</span>';
   }
 
   var tl=el('div','tl');
