@@ -2520,31 +2520,51 @@ function viewVaccine(root){
    11. 統計
    ============================================================ */
 var statRange='week';
+var statOffset=0;
 var hourMetric='all';
 function viewStats(root){
   var pr=el('div','pillRow');
-  [['week','本週'],['month','本月'],[30,'近 30 天']].forEach(function(o){
+  [['week','週'],['month','月'],[30,'近 30 天']].forEach(function(o){
     var b=el('button','pill'+(statRange===o[0]?' on':''),o[1]);
-    b.onclick=function(){ statRange=o[0]; S.keepScroll=true; render(); };
+    b.onclick=function(){ statRange=o[0]; statOffset=0; S.keepScroll=true; render(); };
     pr.appendChild(b);
   });
   root.appendChild(pr);
 
-  /* 本週＝週一起算；本月＝1 號起算；近 30 天＝往回推 */
+  /* 週＝週一起算；月＝1 號起算；近 30 天＝往回推。statOffset 可往前翻 */
   var days=[], from, count;
   var todayD=new Date(); todayD.setHours(0,0,0,0);
   if(statRange==='week'){
     from=new Date(todayD);
-    var dow=from.getDay();                 /* 0=週日 */
-    from.setDate(from.getDate()-((dow+6)%7));   /* 回推到本週一 */
+    var dow=from.getDay();                       /* 0=週日 */
+    from.setDate(from.getDate()-((dow+6)%7)+statOffset*7);
     count=7;
   }else if(statRange==='month'){
-    from=new Date(todayD.getFullYear(),todayD.getMonth(),1);
-    count=new Date(todayD.getFullYear(),todayD.getMonth()+1,0).getDate();
+    from=new Date(todayD.getFullYear(),todayD.getMonth()+statOffset,1);
+    count=new Date(from.getFullYear(),from.getMonth()+1,0).getDate();
   }else{
-    from=new Date(todayD); from.setDate(from.getDate()-29);
+    from=new Date(todayD); from.setDate(from.getDate()-29+statOffset*30);
     count=30;
   }
+
+  /* 期間切換：可以往回看更早的週／月 */
+  var last=new Date(from); last.setDate(from.getDate()+count-1);
+  var nav=el('div','dateNav');
+  var pv=el('button',null,'‹'), nx=el('button',null,'›');
+  var lab=el('div','d');
+  lab.style.fontSize='16px';
+  lab.style.textAlign='center';
+  if(statRange==='month'){
+    lab.innerHTML=from.getFullYear()+' 年 '+(from.getMonth()+1)+' 月';
+  }else{
+    lab.innerHTML=(from.getMonth()+1)+'/'+from.getDate()+' – '+(last.getMonth()+1)+'/'+last.getDate()+
+      '<small>'+from.getFullYear()+' 年</small>';
+  }
+  pv.onclick=function(){ statOffset--; S.keepScroll=true; render(); };
+  nx.onclick=function(){ if(statOffset<0){ statOffset++; S.keepScroll=true; render(); } };
+  if(statOffset>=0) nx.style.opacity='.35';
+  nav.appendChild(pv); nav.appendChild(lab); nav.appendChild(nx);
+  root.appendChild(nav);
   for(var i=0;i<count;i++){
     var d=new Date(from); d.setDate(from.getDate()+i);
     days.push({d:d,key:dkey(d),sleep:0,naps:0,feed:0,ml:0,solid:0,poop:0,med:0,temp:0,all:0});
@@ -2759,9 +2779,10 @@ function viewStats(root){
       var xx=i*(bw+gap), yy=T+plot-h;
       g+='<rect x="'+xx.toFixed(2)+'" y="'+yy.toFixed(2)+'" width="'+bw.toFixed(2)+'" height="'+h.toFixed(2)+
         '" rx="'+Math.min(3,bw/2).toFixed(1)+'" fill="'+(v>0?'url(#bg1)':'#F0E3DA')+'"/>';
-      if(n<=14 && v>0){
-        g+='<text x="'+(xx+bw/2).toFixed(2)+'" y="'+(yy-3.5).toFixed(2)+
-          '" text-anchor="middle" font-size="8" font-weight="700" fill="#850E35">'+fmt(v)+'</text>';
+      if(v>0){
+        var vf = n<=14 ? 8 : n<=24 ? 7 : 6.2;
+        g+='<text x="'+(xx+bw/2).toFixed(2)+'" y="'+(yy-3).toFixed(2)+
+          '" text-anchor="middle" font-size="'+vf+'" font-weight="700" fill="#850E35">'+fmt(v)+'</text>';
       }
       var isMon2 = x.d.getDay()===1;
       g+='<text x="'+(xx+bw/2).toFixed(2)+'" y="'+(H-5)+
