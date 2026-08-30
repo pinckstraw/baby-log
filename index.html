@@ -2043,16 +2043,18 @@ function viewToday(root){
   });
   function gapChip(r){
     if(newestOfType[r.type]!==r.id) return '';
-    var same=kidRecords().filter(function(x){return x.type===r.type;});
-    var idx=same.findIndex(function(x){return x.id===r.id;});
-    var prev=same[idx+1];
-    if(!prev) return '';
-    /* 睡眠＝上次睡醒到這次入睡（睡前醒了多久）；其他＝兩次發生的間隔 */
-    var isSleep = r.type==='sleep' && prev.endAt;
-    var from = isSleep ? new Date(prev.endAt) : new Date(prev.startAt);
-    var ms=new Date(r.startAt)-from;
+    /* 睡眠＝這次睡醒到現在清醒多久；其他＝這次發生到現在多久。兩者都會跑 */
+    var from, icon;
+    if(r.type==='sleep'){
+      if(!r.endAt) return '';               /* 還在睡就不顯示 */
+      from=new Date(r.endAt); icon='☀ ';
+    }else{
+      from=new Date(r.startAt); icon='↺ ';
+    }
+    var ms=Date.now()-from;
     if(ms<=0) return '';
-    return '<span class="gap">'+(isSleep?'☀ ':'↺ ')+agoTight(ms)+'</span>';
+    return '<span class="gap" data-since="'+from.toISOString()+'" data-icon="'+icon+'">'+
+      icon+agoTight(ms)+'</span>';
   }
 
   var tl=el('div','tl');
@@ -2107,6 +2109,16 @@ function viewToday(root){
   swipe.appendChild(tl);
   root.appendChild(swipe);
   enableSwipe(swipe);
+
+  /* 讓卡片上的「到現在多久」跟著時間更新 */
+  clearInterval(window._gapTick);
+  window._gapTick=setInterval(function(){
+    var chips=document.querySelectorAll('.gap[data-since]');
+    if(!chips.length){ clearInterval(window._gapTick); return; }
+    chips.forEach(function(c){
+      c.textContent=(c.dataset.icon||'↺ ')+agoTight(Date.now()-new Date(c.dataset.since));
+    });
+  },30000);
 }
 
 /* ============================================================
