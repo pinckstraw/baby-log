@@ -97,9 +97,10 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 .nurseNow{background:linear-gradient(135deg,#EE6983,#850E35);color:#fff;
   border-radius:14px;padding:7px 8px 7px 11px;display:flex;
   align-items:center;justify-content:space-between;gap:6px;
-  flex:2 1 0;min-width:0;box-shadow:0 2px 8px rgba(133,14,53,.12)}
+  flex:0 0 calc(50% - 4px);min-width:0;box-shadow:0 2px 8px rgba(133,14,53,.12)}
 .nurseNow .t{font-size:17px;font-weight:900;font-variant-numeric:tabular-nums;white-space:nowrap}
-.nurseNow .sub2{font-size:10.5px;opacity:.85;white-space:nowrap;margin-top:1px}
+.nurseNow .sub2{font-size:10.5px;opacity:.85;white-space:nowrap;margin-top:1px;
+  overflow:hidden;text-overflow:ellipsis}
 .nurseTotal{font-size:44px;font-weight:900;color:var(--wine);text-align:center;
   font-variant-numeric:tabular-nums;line-height:1.1;margin-top:4px}
 .nurseState{text-align:center;font-size:13px;color:var(--mute);margin:4px 0 14px}
@@ -152,9 +153,11 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 .sleepNow{background:linear-gradient(135deg,var(--rose),var(--wine));color:#fff;
   border-radius:14px;padding:7px 8px 7px 11px;display:flex;
   align-items:center;justify-content:space-between;gap:6px;
-  flex:2 1 0;min-width:0;box-shadow:0 2px 8px rgba(133,14,53,.12)}
+  flex:0 0 calc(50% - 4px);min-width:0;box-shadow:0 2px 8px rgba(133,14,53,.12)}
 .sleepNow .t{font-size:17px;font-weight:900;font-variant-numeric:tabular-nums;white-space:nowrap}
-.sleepNow .sub2{font-size:10.5px;opacity:.85;white-space:nowrap;margin-top:1px}
+.sleepNow .sub2{font-size:10.5px;opacity:.85;white-space:nowrap;margin-top:1px;
+  overflow:hidden;text-overflow:ellipsis}
+.tbody{min-width:0;flex:1;text-align:center;overflow:hidden}
 .wakeBtn{background:#fff;color:var(--wine);border-radius:9px;padding:6px 9px;
   font-weight:800;font-size:12px;flex:none;line-height:1.2}
 
@@ -1947,7 +1950,7 @@ function viewToday(root){
   if(os){
     var card=el('div','sleepNow');
     var since=new Date(os.startAt);
-    card.innerHTML='<div style="min-width:0;text-align:center;flex:1">'+
+    card.innerHTML='<div class="tbody">'+
       '<div class="t" id="sleepTick">'+durShort(Date.now()-since)+'</div>'+
       '<div class="sub2">🌙 '+hhmm(os.startAt)+' 開始睡</div></div>';
     var wb=el('button','wakeBtn','起床了');
@@ -1975,7 +1978,7 @@ function viewToday(root){
       var nt2=nurseTotals();
       var ncard=el('div','nurseNow');
       var sideTxt = NURSE.side==='L'?'左邊進行中':NURSE.side==='R'?'右邊進行中':'已暫停';
-      ncard.innerHTML='<div style="min-width:0;text-align:center;flex:1">'+
+      ncard.innerHTML='<div class="tbody">'+
         '<div class="t" id="nurseTick">'+durShort(nt2.total)+'</div>'+
         '<div class="sub2">🤱 '+sideTxt+'</div></div>';
       var nb=el('button','wakeBtn','繼續');
@@ -2087,7 +2090,7 @@ function viewToday(root){
       }else{
         var take=ss.splice(0,2);
         take.forEach(function(k){ row.appendChild(statCell(k)); });
-        row.querySelectorAll('.st').forEach(function(c){ c.style.flexBasis='calc(25% - 6px)'; });
+        row.querySelectorAll('.st').forEach(function(c){ c.style.flex='0 0 calc(25% - 6px)'; });
       }
       root.appendChild(row);
     }
