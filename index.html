@@ -1671,8 +1671,9 @@ function agoShort(ms){
   var d=Math.floor(h/24);
   return d+'天'+(h%24)+'時';
 }
-function todaySleepMs(){
-  var ms=0, d0=new Date(); d0.setHours(0,0,0,0);
+function daySleepMs(dayKey){
+  var ms=0, d0=dayKey?new Date(dayKey+'T00:00:00'):new Date();
+  d0.setHours(0,0,0,0);
   var d1=new Date(d0.getTime()+86400000);
   kidRecords().forEach(function(r){
     if(r.type!=='sleep')return;
@@ -1686,10 +1687,11 @@ function lastOf(type){
   return kidRecords().filter(function(r){return r.type===type;})[0];
 }
 function statValue(key){
-  var today=recordsOn(dkey(new Date()));
+  /* 次數／總量類跟著時間軸選的日期走；「距上次」類仍以現在為準 */
+  var today=recordsOn(S.day);
   var of=function(t){ return today.filter(function(r){return r.type===t;}); };
   switch(key){
-    case 'sleepToday': return (todaySleepMs()/3600000).toFixed(1)+'h';
+    case 'sleepToday': return (daySleepMs(S.day)/3600000).toFixed(1)+'h';
     case 'naps': return of('sleep').length;
     case 'awake': {
       if(ongoingSleep()) return '睡眠中';
@@ -2724,7 +2726,7 @@ function viewStats(root){
     return gaps.reduce(function(a,b){return a+b;},0)/gaps.length/3600000;
   }
   var aw=awakeAvg();
-  var todaySleepH=todaySleepMs()/3600000;
+  var todaySleepH=daySleepMs(dkey(new Date()))/3600000;
 
   if(hourMetric==='sleep'){
     tiles=[[avgOf('sleep').toFixed(1)+'h','平均睡眠'],
