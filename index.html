@@ -1343,8 +1343,8 @@ function openCustomize(){
       build();
     }
 
-    picker('首頁快捷鍵',QUICKS,PREFS.quicks,8,'每列 4 個');
-    picker('首頁統計數字',STATS,PREFS.stats,8,'每列 4 個');
+    picker('首頁快捷鍵',QUICKS,PREFS.quicks,10,'每列 4 個');
+    picker('首頁統計數字',STATS,PREFS.stats,10,'每列 4 個');
     picker('統計頁類別',STAT_TYPES,PREFS.types,7,'統計頁上方的切換鈕');
 
     bd.appendChild(el('div','secTitle','時間顯示'));
@@ -1723,8 +1723,9 @@ function recordsOn(day){
 }
 /* 依項目數決定每列幾格，讓每一列都填滿，不會留空格 */
 function fitRows(container,n){
-  var per = n<=4 ? n : (n<=6 ? 3 : 4);
-  var basis = 'calc('+(100/per)+'% - '+((per-1)*8/per).toFixed(2)+'px)';
+  var rows=Math.ceil(n/4);
+  var per=Math.ceil(n/rows);
+  var basis='calc('+(100/per)+'% - '+((per-1)*8/per).toFixed(2)+'px)';
   Array.prototype.forEach.call(container.children,function(c){
     c.style.flexBasis=basis;
   });
