@@ -1952,7 +1952,7 @@ function viewToday(root){
     var since=new Date(os.startAt);
     card.innerHTML='<div class="tbody">'+
       '<div class="t" id="sleepTick">'+durShort(Date.now()-since)+'</div>'+
-      '<div class="sub2">🌙 '+hhmm(os.startAt)+' 開始睡</div></div>';
+      '<div class="sub2">🌙 '+hhmm(os.startAt)+'</div></div>';
     var wb=el('button','wakeBtn','起床了');
     wb.onclick=function(){
       var item=Object.assign({},os,{endAt:new Date().toISOString()});
