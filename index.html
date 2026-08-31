@@ -384,6 +384,7 @@ var TYPES = {
   feed:    {em:'🍼', lb:'餵奶',   color:'#EE6983'},
   solid:   {em:'🥣', lb:'副食品', color:'#E0913C'},
   poop:    {em:'💩', lb:'大便',   color:'#A9784B'},
+  pee:     {em:'💧', lb:'尿尿',   color:'#4C93C4'},
   med:     {em:'💊', lb:'用藥',   color:'#4C9AA8'},
   temp:    {em:'🌡️', lb:'體溫',   color:'#D2523F'},
   growth:  {em:'📏', lb:'身高體重',color:'#5B8C5A'},
@@ -398,6 +399,7 @@ var QUICKS = {
   feed:    {em:'🍼', lb:'餵奶'},
   solid:   {em:'🥣', lb:'副食品'},
   poop:    {em:'💩', lb:'大便'},
+  pee:     {em:'💧', lb:'尿尿'},
   med:     {em:'💊', lb:'用藥'},
   temp:    {em:'🌡️', lb:'體溫'},
   growth:  {em:'📏', lb:'身高體重'},
@@ -416,6 +418,8 @@ var STATS = {
   solidCount: {lb:'副食品', em:'🥣', c:'#E0913C'},
   poopCount:  {lb:'大便次數', em:'💩', c:'#A9784B'},
   lastPoop:   {lb:'距上次大便', em:'💩', c:'#A9784B'},
+  peeCount:   {lb:'尿尿次數', em:'💧', c:'#4C93C4'},
+  lastPee:    {lb:'距上次尿尿', em:'💧', c:'#4C93C4'},
   medCount:   {lb:'用藥次數', em:'💊', c:'#4C9AA8'},
   lastMed:    {lb:'距上次用藥', em:'💊', c:'#4C9AA8'},
   tempMax:    {lb:'最高體溫', em:'🌡️', c:'#D2523F'},
@@ -432,10 +436,11 @@ var STAT_TYPES = {
   feed:  {lb:'餵奶', em:'🍼'},
   solid: {lb:'副食品', em:'🥣'},
   poop:  {lb:'大便', em:'💩'},
+  pee:   {lb:'尿尿', em:'💧'},
   med:   {lb:'用藥', em:'💊'},
   temp:  {lb:'體溫', em:'🌡️'}
 };
-var DEFAULT_STAT_TYPES = ['all','sleep','feed','poop','med','temp'];
+var DEFAULT_STAT_TYPES = ['all','sleep','feed','poop','pee','med','temp'];
 
 var PREFS = {
   quicks: JSON.parse(localStorage.getItem('bl_quicks')||'null') || DEFAULT_QUICKS.slice(),
@@ -979,6 +984,11 @@ function openRecordForm(type,rec){
       bd.appendChild(field('量',segment(['少','中','多'],d.amount||'中',function(v){d.amount=v;})));
     }
 
+    if(type==='pee'){
+      bd.appendChild(field('量',segment(['少','中','多'],d.amount||'中',function(v){d.amount=v;})));
+      bd.appendChild(field('顏色',segment(['淡黃','黃','深黃','偏橘','帶血'],d.color||'',function(v){d.color=v;})));
+    }
+
     if(type==='med'){
       bd.appendChild(el('div','bandNote','藥品、劑量、原因都直接寫在下面的備註，點常用詞就能快速組合。'));
     }
@@ -1349,6 +1359,12 @@ function summary(r){
       return (d.method||'')+(d.amount?' '+d.amount+(d.method==='親餵'?' 分鐘':' ml'):'');
     }
     case 'solid': return (d.food||'副食品')+(d.accept?'・'+d.accept:'');
+    case 'pee': {
+      var pe=[];
+      if(d.amount && d.amount!=='中') pe.push('量'+d.amount);
+      if(d.color && d.color!=='淡黃' && d.color!=='黃') pe.push(d.color);
+      return pe.join('・');
+    }
     case 'poop': {
       var pp=[];
       if(d.texture && d.texture!=='正常') pp.push(d.texture);
@@ -1500,7 +1516,7 @@ function haystack(r){
   parts.push(TYPES[r.type]?TYPES[r.type].lb:r.type);
   parts.push(r.note||'');
   parts.push(r.by||'');
-  ['food','accept','method','texture','color','amount','name','dose','reason',
+  ['food','accept','method','texture','color','amount','place','name','dose','reason',
    'value','spot','height','weight','head','place','item','clinic','next'].forEach(function(k){
     if(d[k]!=null && d[k]!=='') parts.push(String(d[k]));
   });
@@ -1717,6 +1733,8 @@ function statValue(key){
     case 'solidCount': return of('solid').length;
     case 'poopCount': return of('poop').length;
     case 'lastPoop': { var p=lastOf('poop'); return p?agoShort(Date.now()-new Date(p.startAt)):'—'; }
+    case 'peeCount': return of('pee').length;
+    case 'lastPee': { var pe=lastOf('pee'); return pe?agoShort(Date.now()-new Date(pe.startAt)):'—'; }
     case 'medCount': return of('med').length;
     case 'lastMed': { var md=lastOf('med'); return md?agoShort(Date.now()-new Date(md.startAt)):'—'; }
     case 'lastFever': {
@@ -2661,7 +2679,7 @@ function viewStats(root){
   root.appendChild(nav);
   for(var i=0;i<count;i++){
     var d=new Date(from); d.setDate(from.getDate()+i);
-    days.push({d:d,key:dkey(d),sleep:0,naps:0,feed:0,ml:0,solid:0,poop:0,med:0,temp:0,all:0});
+    days.push({d:d,key:dkey(d),sleep:0,naps:0,feed:0,ml:0,solid:0,poop:0,pee:0,med:0,temp:0,all:0});
   }
   var byKey={}; days.forEach(function(x){byKey[x.key]=x;});
   kidRecords().forEach(function(r){
@@ -2680,6 +2698,7 @@ function viewStats(root){
     x.all++;
     if(r.type==='feed'){ x.feed++; if(d.method!=='親餵') x.ml+=parseFloat(d.amount)||0; }
     if(r.type==='poop') x.poop++;
+    if(r.type==='pee') x.pee++;
     if(r.type==='solid') x.solid++;
     if(r.type==='med') x.med++;
     if(r.type==='temp'){ var tv=parseFloat(d.value)||0; if(tv>x.temp) x.temp=tv; }
@@ -2839,7 +2858,7 @@ function viewStats(root){
   }
 
   if(hourMetric!=='sleep'){
-    var COLS={feed:'#EE6983',poop:'#A9784B',solid:'#E0913C',med:'#4C9AA8',
+    var COLS={feed:'#EE6983',poop:'#A9784B',pee:'#4C93C4',solid:'#E0913C',med:'#4C9AA8',
               temp:'#D2523F',dental:'#4F7FBF',vaccine:'#8A6FBF',growth:'#5B8C5A'};
     kidRecords().filter(function(r){return dotTypes.indexOf(r.type)>=0;}).forEach(function(r){
       var t=new Date(r.startAt);
@@ -2868,7 +2887,7 @@ function viewStats(root){
   hbox.style.cssText='width:100%;overflow:hidden';
   hc.appendChild(hbox);
   if(count && showAllTypes && picked.length>1){
-    var LEGC={sleep:'#7C6BB0',feed:'#EE6983',solid:'#E0913C',poop:'#A9784B',
+    var LEGC={sleep:'#7C6BB0',feed:'#EE6983',solid:'#E0913C',poop:'#A9784B',pee:'#4C93C4',
               med:'#4C9AA8',temp:'#D2523F'};
     var lgd=el('div','legend');
     lgd.innerHTML=picked.map(function(k){
@@ -2924,6 +2943,7 @@ function viewStats(root){
     feed:  {lb:'每日餵奶次數',   f:'feed',  fmt:function(v){return v;}},
     solid: {lb:'每日副食品次數', f:'solid', fmt:function(v){return v;}},
     poop:  {lb:'每日大便次數',   f:'poop',  fmt:function(v){return v;}},
+    pee:   {lb:'每日尿尿次數',   f:'pee',   fmt:function(v){return v;}},
     med:   {lb:'每日用藥次數',   f:'med',   fmt:function(v){return v;}},
     temp:  {lb:'每日最高體溫',   f:'temp',  fmt:function(v){return v.toFixed(1);},
             unit:'只計入有量測的日子'}
