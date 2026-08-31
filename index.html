@@ -95,9 +95,9 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 
 /* ---------- today ---------- */
 .nurseNow{background:linear-gradient(135deg,#EE6983,#850E35);color:#fff;
-  border-radius:18px;padding:14px 16px;margin-bottom:12px;display:flex;
-  align-items:center;justify-content:space-between;gap:12px}
-.nurseNow .t{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums}
+  border-radius:14px;padding:8px 10px 8px 14px;margin-bottom:8px;display:flex;
+  align-items:center;justify-content:space-between;gap:10px}
+.nurseNow .t{font-size:17px;font-weight:900;font-variant-numeric:tabular-nums;white-space:nowrap}
 .nurseTotal{font-size:44px;font-weight:900;color:var(--wine);text-align:center;
   font-variant-numeric:tabular-nums;line-height:1.1;margin-top:4px}
 .nurseState{text-align:center;font-size:13px;color:var(--mute);margin:4px 0 14px}
@@ -148,10 +148,11 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
   min-width:0;letter-spacing:-.02em}
 .quick:active{background:var(--cream)}
 .sleepNow{background:linear-gradient(135deg,var(--rose),var(--wine));color:#fff;
-  border-radius:18px;padding:14px 16px;margin-bottom:12px;display:flex;
-  align-items:center;justify-content:space-between;gap:12px}
-.sleepNow .t{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums}
-.wakeBtn{background:#fff;color:var(--wine);border-radius:12px;padding:10px 15px;font-weight:800;font-size:14px;flex:none}
+  border-radius:14px;padding:8px 10px 8px 14px;margin-bottom:8px;display:flex;
+  align-items:center;justify-content:space-between;gap:10px}
+.sleepNow .t{font-size:17px;font-weight:900;font-variant-numeric:tabular-nums;white-space:nowrap}
+.wakeBtn{background:#fff;color:var(--wine);border-radius:10px;padding:7px 13px;
+  font-weight:800;font-size:13px;flex:none}
 
 .dayStats{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px}
 .st{background:#fff;border-radius:14px;padding:7px 5px 9px;text-align:center;
@@ -228,6 +229,19 @@ textarea.in{min-height:46px;resize:none;line-height:1.5;overflow:hidden}
 .seg button{border:1.5px solid var(--line);background:#fff;border-radius:11px;padding:9px 13px;
   font-size:14px;font-weight:600}
 .seg button.on{background:var(--rose);border-color:var(--rose);color:#fff}
+.sortList{touch-action:pan-y}
+.sortRow{display:flex;align-items:center;gap:10px;padding:10px 2px;
+  border-bottom:1px solid var(--line);background:#fff}
+.sortRow:last-child{border-bottom:0}
+.sortRow.dragging{opacity:.6;background:var(--cream);border-radius:10px}
+.sortRow .grip{width:26px;height:26px;flex:none;display:grid;place-items:center;
+  color:var(--rose);font-size:17px;font-weight:700;cursor:grab;touch-action:none}
+.sortRow .grip.ghost{color:var(--rose);font-size:16px}
+.sortRow .rowLb{flex:1;font-size:14.5px;font-weight:600;color:var(--wine);min-width:0}
+.sortRow .rowBtn{width:26px;height:26px;flex:none;border-radius:50%;
+  display:grid;place-items:center;font-size:13px;color:var(--mute);background:var(--cream)}
+.sortList.off .sortRow{opacity:.72}
+
 .seg button .cl{font-size:14px;font-weight:700;line-height:1.3}
 .seg button .ce{font-size:12.5px;font-weight:500;opacity:.7;margin-top:2px;
   font-variant-numeric:tabular-nums}
@@ -423,6 +437,7 @@ var STATS = {
   medCount:   {lb:'用藥次數', em:'💊', c:'#4C9AA8'},
   lastMed:    {lb:'距上次用藥', em:'💊', c:'#4C9AA8'},
   tempMax:    {lb:'最高體溫', em:'🌡️', c:'#D2523F'},
+  lastTemp:   {lb:'距上次量體溫', em:'🌡️', c:'#D2523F'},
   lastFever:  {lb:'距上次發燒', em:'🔥', c:'#D2523F'}
 };
 
@@ -1232,43 +1247,93 @@ function openCustomize(){
 
     function picker(title,defs,list,max,hint){
       bd.appendChild(el('div','secTitle',title));
-      var c=el('div','card');
+
+      var wrap=el('div','card');
+      var onList=el('div','sortList');
+      var offTitle=el('div','bandNote','');
+      var offList=el('div','sortList off');
       var counter=el('div','bandNote','');
-      function refresh(){
-        counter.textContent='已選 '+list.length+' 項'+(max?'（最多 '+max+' 項）':'')+(hint?'　'+hint:'');
-        c.querySelectorAll('button[data-k]').forEach(function(b){
-          var i=list.indexOf(b.dataset.k), on=i>=0, box=b.querySelector('.box');
-          b.querySelector('.num').textContent=on?(i+1):'';
-          box.style.background=on?'var(--rose)':'transparent';
-          box.style.borderColor=on?'var(--rose)':'var(--pink)';
-        });
+
+      function rowHtml(k){
+        return '<span class="grip">≡</span>'+
+          '<span class="rowLb">'+(defs[k].em?defs[k].em+' ':'')+esc(defs[k].lb)+'</span>';
       }
-      var shown=0;
-      Object.keys(defs).forEach(function(k){
-        if(k==='nurse' && !PREFS.nurse) return;
-        var idx=shown++;
-        var b=el('button',null,'');
-        b.dataset.k=k;
-        b.style.cssText='display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:11px 2px;'+
-          (idx?'border-top:1px solid var(--line);':'');
-        b.innerHTML='<span style="width:22px;height:22px;border-radius:7px;border:2px solid var(--pink);'+
-          'display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff;flex:none" class="box">'+
-          '<span class="num"></span></span>'+
-          '<span style="flex:1;font-size:14.5px;font-weight:600">'+(defs[k].em?defs[k].em+' ':'')+esc(defs[k].lb)+'</span>';
-        b.onclick=function(){
-          var i=list.indexOf(k);
-          if(i>=0) list.splice(i,1);
-          else {
+
+      function build(){
+        onList.innerHTML=''; offList.innerHTML='';
+        list.forEach(function(k){
+          if(!defs[k]) return;
+          if(k==='nurse' && !PREFS.nurse) return;
+          var row=el('div','sortRow');
+          row.dataset.k=k;
+          row.innerHTML=rowHtml(k);
+          var rm=el('button','rowBtn del','✕');
+          rm.onclick=function(){
+            var i=list.indexOf(k);
+            if(i>=0) list.splice(i,1);
+            savePrefs(); build();
+          };
+          row.appendChild(rm);
+          onList.appendChild(row);
+        });
+
+        var offKeys=Object.keys(defs).filter(function(k){
+          if(k==='nurse' && !PREFS.nurse) return false;
+          return list.indexOf(k)<0;
+        });
+        offKeys.forEach(function(k){
+          var row=el('div','sortRow');
+          row.innerHTML='<span class="grip ghost">＋</span>'+
+            '<span class="rowLb">'+(defs[k].em?defs[k].em+' ':'')+esc(defs[k].lb)+'</span>';
+          row.onclick=function(){
             if(max && list.length>=max){ toast('最多只能選 '+max+' 項'); return; }
-            list.push(k);
-          }
-          savePrefs(); refresh();
-        };
-        c.appendChild(b);
-      });
-      bd.appendChild(c);
+            list.push(k); savePrefs(); build();
+          };
+          offList.appendChild(row);
+        });
+
+        offTitle.textContent = offKeys.length ? '點一下加入：' : '';
+        offList.style.display = offKeys.length ? '' : 'none';
+        counter.textContent='已選 '+list.length+' 項'+(max?'（最多 '+max+' 項）':'')+
+          (hint?'　'+hint:'')+'　按住 ≡ 可拖曳排序';
+      }
+
+      /* 觸控拖曳排序 */
+      var drag=null;
+      onList.addEventListener('touchstart',function(e){
+        var g=e.target.closest && e.target.closest('.grip');
+        if(!g) return;
+        drag=g.closest('.sortRow');
+        if(drag) drag.classList.add('dragging');
+      },{passive:true});
+      onList.addEventListener('touchmove',function(e){
+        if(!drag) return;
+        e.preventDefault();
+        var t=e.touches[0];
+        var el2=document.elementFromPoint(t.clientX,t.clientY);
+        var over=el2 && el2.closest ? el2.closest('.sortRow') : null;
+        if(!over || over===drag || over.parentNode!==onList) return;
+        var rows=Array.prototype.slice.call(onList.children);
+        if(rows.indexOf(over)<rows.indexOf(drag)) onList.insertBefore(drag,over);
+        else onList.insertBefore(drag,over.nextSibling);
+      },{passive:false});
+      function endDrag(){
+        if(!drag) return;
+        drag.classList.remove('dragging');
+        drag=null;
+        var order=Array.prototype.slice.call(onList.children).map(function(r){return r.dataset.k;});
+        list.length=0; order.forEach(function(k){ list.push(k); });
+        savePrefs(); build();
+      }
+      onList.addEventListener('touchend',endDrag,{passive:true});
+      onList.addEventListener('touchcancel',endDrag,{passive:true});
+
+      wrap.appendChild(onList);
+      wrap.appendChild(offTitle);
+      wrap.appendChild(offList);
+      bd.appendChild(wrap);
       bd.appendChild(counter);
-      refresh();
+      build();
     }
 
     picker('首頁快捷鍵',QUICKS,PREFS.quicks,8,'每列 4 個');
@@ -1744,6 +1809,7 @@ function statValue(key){
       if(ms>48*3600000) return '無';          /* 超過兩天就顯示無 */
       return agoShort(ms);
     }
+    case 'lastTemp': { var tp=lastOf('temp'); return tp?agoShort(Date.now()-new Date(tp.startAt)):'—'; }
     case 'tempMax': {
       var vs=of('temp').map(function(r){return parseFloat(parseData(r).value)||0;}).filter(Boolean);
       return vs.length?Math.max.apply(null,vs).toFixed(1)+'°':'—';
@@ -1875,8 +1941,9 @@ function viewToday(root){
   if(os){
     var card=el('div','sleepNow');
     var since=new Date(os.startAt);
-    card.innerHTML='<div><div style="font-size:12px;opacity:.85">🌙 從 '+hhmm(os.startAt)+' 開始睡</div>'+
-      '<div class="t" id="sleepTick">'+durShort(Date.now()-since)+'</div></div>';
+    card.innerHTML='<div style="min-width:0;display:flex;align-items:baseline;gap:8px">'+
+      '<span class="t" id="sleepTick">'+durShort(Date.now()-since)+'</span>'+
+      '<span style="font-size:12px;opacity:.85;white-space:nowrap">🌙 '+hhmm(os.startAt)+' 開始</span></div>';
     var wb=el('button','wakeBtn','起床了');
     wb.onclick=function(){
       var item=Object.assign({},os,{endAt:new Date().toISOString()});
