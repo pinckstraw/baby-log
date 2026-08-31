@@ -2081,20 +2081,31 @@ function viewToday(root){
       '<div class="l">'+def.lb+'</div>';
     return cell;
   }
-  /* 計時器各占兩格寬：兩個計時器並排成一列；只有一個時右邊補兩格統計 */
-  if(timerCards.length){
+  /* 第一列固定兩格統計；有計時器就放左邊，兩個計時器則各佔一半 */
+  if(timerCards.length>=2){
     for(var ti=0; ti<timerCards.length; ti+=2){
-      var row=el('div','dayStats');
-      row.appendChild(timerCards[ti]);
-      if(timerCards[ti+1]){
-        row.appendChild(timerCards[ti+1]);
-      }else{
-        var take=ss.splice(0,2);
-        take.forEach(function(k){ row.appendChild(statCell(k)); });
-        row.querySelectorAll('.st').forEach(function(c){ c.style.flex='0 0 calc(25% - 6px)'; });
-      }
-      root.appendChild(row);
+      var trow=el('div','dayStats');
+      trow.appendChild(timerCards[ti]);
+      if(timerCards[ti+1]) trow.appendChild(timerCards[ti+1]);
+      root.appendChild(trow);
     }
+  }
+  if(ss.length){
+    var firstRow=el('div','dayStats');
+    if(timerCards.length===1) firstRow.appendChild(timerCards[0]);
+    var take=ss.splice(0,2);
+    take.forEach(function(k){ firstRow.appendChild(statCell(k)); });
+    /* 有計時器占左半邊時固定單格寬；沒有的話讓兩格撐滿整列 */
+    if(timerCards.length===1){
+      firstRow.querySelectorAll('.st').forEach(function(c){ c.style.flex='0 0 calc(25% - 6px)'; });
+    }else{
+      fitRows(firstRow,take.length);
+    }
+    root.appendChild(firstRow);
+  }else if(timerCards.length===1){
+    var solo=el('div','dayStats');
+    solo.appendChild(timerCards[0]);
+    root.appendChild(solo);
   }
   if(ss.length){
     var sg=el('div','dayStats');
