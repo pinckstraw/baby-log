@@ -2077,16 +2077,20 @@ function viewToday(root){
       '<div class="l">'+def.lb+'</div>';
     return cell;
   }
-  /* 計時器占兩格寬，右邊接兩格統計，湊成完整一列 */
+  /* 計時器各占兩格寬：兩個計時器並排成一列；只有一個時右邊補兩格統計 */
   if(timerCards.length){
-    timerCards.forEach(function(tc,ti){
+    for(var ti=0; ti<timerCards.length; ti+=2){
       var row=el('div','dayStats');
-      row.appendChild(tc);
-      var take=ss.splice(0,2);
-      take.forEach(function(k){ row.appendChild(statCell(k)); });
-      row.querySelectorAll('.st').forEach(function(c){ c.style.flexBasis='calc(25% - 6px)'; });
+      row.appendChild(timerCards[ti]);
+      if(timerCards[ti+1]){
+        row.appendChild(timerCards[ti+1]);
+      }else{
+        var take=ss.splice(0,2);
+        take.forEach(function(k){ row.appendChild(statCell(k)); });
+        row.querySelectorAll('.st').forEach(function(c){ c.style.flexBasis='calc(25% - 6px)'; });
+      }
       root.appendChild(row);
-    });
+    }
   }
   if(ss.length){
     var sg=el('div','dayStats');
