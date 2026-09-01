@@ -3011,16 +3011,38 @@ function viewStats(root){
   if(hourMetric!=='sleep'){
     var COLS={feed:'#EE6983',poop:'#A9784B',pee:'#4C93C4',solid:'#E0913C',med:'#4C9AA8',
               temp:'#D2523F',dental:'#4F7FBF',vaccine:'#8A6FBF',growth:'#5B8C5A'};
+    var sz=Math.max(3.5,Math.min(7,colW*0.45));
+    /* 依日期分組，時間相近的並排錯開，避免圖示疊在一起 */
+    var byCol={};
     kidRecords().filter(function(r){return dotTypes.indexOf(r.type)>=0;}).forEach(function(r){
       var t=new Date(r.startAt);
-      var i=dayStart[dkey(t)];
-      if(i==null) return;
-      var y=GY(t.getHours()+t.getMinutes()/60);
-      var sz=Math.max(3.5,Math.min(7,colW*0.45));
-      gg+='<rect x="'+(GX(i)+colW/2-sz/2).toFixed(2)+'" y="'+(y-sz/2).toFixed(2)+
-        '" width="'+sz.toFixed(1)+'" height="'+sz.toFixed(1)+'" rx="1.5" fill="'+(COLS[r.type]||'#850E35')+
-        '" stroke="#fff" stroke-width="'+(showAllTypes?0.8:0)+'"/>';
-      count++;
+      var ci=dayStart[dkey(t)];
+      if(ci==null) return;
+      (byCol[ci]=byCol[ci]||[]).push({y:GY(t.getHours()+t.getMinutes()/60), type:r.type});
+    });
+    Object.keys(byCol).forEach(function(key){
+      var colIdx=parseInt(key,10);
+      var items=byCol[key].sort(function(a,b){return a.y-b.y;});
+      var cluster=[];
+      var flush=function(){
+        if(!cluster.length) return;
+        var n=cluster.length;
+        var w=Math.max(2.5,Math.min(sz,(colW-2-(n-1))/n));
+        var total=n*w+(n-1);
+        var x0=GX(colIdx)+colW/2-total/2;
+        cluster.forEach(function(it,k){
+          gg+='<rect x="'+(x0+k*(w+1)).toFixed(2)+'" y="'+(it.y-w/2).toFixed(2)+
+            '" width="'+w.toFixed(1)+'" height="'+w.toFixed(1)+'" rx="1.5" fill="'+
+            (COLS[it.type]||'#850E35')+'" stroke="#fff" stroke-width="'+(showAllTypes?0.8:0)+'"/>';
+          count++;
+        });
+        cluster=[];
+      };
+      items.forEach(function(it){
+        if(cluster.length && it.y-cluster[0].y > sz+1) flush();
+        cluster.push(it);
+      });
+      flush();
     });
   }
 
