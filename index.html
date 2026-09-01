@@ -1611,7 +1611,7 @@ function snippet(text,q,len){
   return (s>0?'…':'')+text.slice(s,s+(len||60));
 }
 function openSearch(){
-  var scope={all:false};
+  var scope={all:false, range:'', from:'', to:''};
   openSearchSheet(scope);
 }
 function openSearchSheet(scope){
@@ -1621,9 +1621,36 @@ function openSearchSheet(scope){
     bd.appendChild(field(null,q));
 
     var pr=el('div','pillRow');
-    var pAll=el('button','pill'+(scope.all?' on':''),'所有寶寶');
-    pAll.onclick=function(){ scope.all=!scope.all; closeSheet(); setTimeout(function(){openSearchSheet(scope);},160); };
-    if(S.children.length>1) { pr.appendChild(pAll); bd.appendChild(pr); }
+    if(S.children.length>1){
+      var pAll=el('button','pill'+(scope.all?' on':''),'所有寶寶');
+      pAll.onclick=function(){ scope.all=!scope.all; closeSheet(); setTimeout(function(){openSearchSheet(scope);},160); };
+      pr.appendChild(pAll);
+      bd.appendChild(pr);
+    }
+
+    /* 日期區間 */
+    var rr=el('div','pillRow');
+    [['','不限'],['7','近 7 天'],['30','近 30 天'],['90','近 3 個月'],['custom','自訂']].forEach(function(o){
+      var b=el('button','pill'+(scope.range===o[0]?' on':''),o[1]);
+      b.onclick=function(){
+        scope.range=o[0];
+        if(o[0]!=='custom'){ scope.from=''; scope.to=''; }
+        closeSheet(); setTimeout(function(){openSearchSheet(scope);},160);
+      };
+      rr.appendChild(b);
+    });
+    bd.appendChild(rr);
+
+    if(scope.range==='custom'){
+      var cw=el('div','row2');
+      var f1=input('date',scope.from||'');
+      var f2=input('date',scope.to||'');
+      f1.oninput=function(){ scope.from=f1.value; run(); };
+      f2.oninput=function(){ scope.to=f2.value; run(); };
+      cw.appendChild(field('從',f1));
+      cw.appendChild(field('到',f2));
+      bd.appendChild(cw);
+    }
 
     var out=el('div');
     bd.appendChild(out);
@@ -1636,17 +1663,37 @@ function openSearchSheet(scope){
         return;
       }
       var lower=term.toLowerCase();
+
+      /* 日期區間 */
+      var fromT=null, toT=null;
+      if(scope.range==='custom'){
+        if(scope.from) fromT=new Date(scope.from+'T00:00:00').getTime();
+        if(scope.to) toT=new Date(scope.to+'T23:59:59').getTime();
+      }else if(scope.range){
+        fromT=Date.now()-parseInt(scope.range,10)*86400000;
+      }
+      function inRange(iso){
+        var t=new Date(iso).getTime();
+        if(fromT!=null && t<fromT) return false;
+        if(toT!=null && t>toT) return false;
+        return true;
+      }
+
       var pool=scope.all
         ? S.records.slice().sort(function(a,b){return new Date(b.startAt)-new Date(a.startAt);})
         : kidRecords();
-      var hits=pool.filter(function(r){ return haystack(r).indexOf(lower)>=0; });
+      var hits=pool.filter(function(r){
+        return inRange(r.startAt) && haystack(r).indexOf(lower)>=0;
+      });
       var mhits=S.handoff.filter(function(m){
+        if(!inRange(m.at)) return false;
         return String(m.text||'').toLowerCase().indexOf(lower)>=0
           || String(m.by||'').toLowerCase().indexOf(lower)>=0;
       }).sort(function(a,b){return new Date(b.at)-new Date(a.at);});
 
       if(!hits.length && !mhits.length){
-        out.appendChild(el('div','empty','<span class="big">🔍</span>找不到「'+esc(term)+'」'));
+        out.appendChild(el('div','empty','<span class="big">🔍</span>找不到「'+esc(term)+'」'+
+          (scope.range?'<br><span style="font-size:12px">試試把日期區間放寬</span>':'')));
         return;
       }
 
