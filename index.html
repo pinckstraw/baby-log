@@ -226,22 +226,24 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 
 .f{margin-bottom:13px}
 .f>label{display:block;font-size:12.5px;font-weight:700;color:var(--wine);margin-bottom:6px}
-.dtBox{display:flex;align-items:center;gap:8px;background:#fff;
-  border:1.5px solid var(--line);border-radius:13px;padding:11px 8px 11px 13px}
-.dtBox:active{border-color:var(--rose)}
-.dtVal{flex:1;min-width:0;font-size:16px;font-weight:700;color:var(--wine);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dtVal.empty{color:var(--mute);font-weight:500}
-.dtPick{position:relative;width:30px;height:30px;flex:none;border-radius:8px;
-  display:grid;place-items:center;color:var(--rose);background:var(--cream)}
-.dtPick svg{width:18px;height:18px}
-.dtNative{position:absolute;inset:0;width:100%;height:100%;opacity:0;
-  border:0;padding:0;margin:0;background:transparent}
 
 .in{width:100%;border:1.5px solid var(--line);background:#fff;border-radius:13px;
   padding:12px 13px;outline:none}
 .in:focus{border-color:var(--rose)}
 textarea.in{min-height:46px;resize:none;line-height:1.5;overflow:hidden}
+.dtBox{display:flex;align-items:center;gap:8px;background:#fff;
+  border:1.5px solid var(--line);border-radius:13px;padding:11px 8px 11px 13px}
+.dtBox:active{border-color:var(--rose)}
+.dtBox .dtVal{flex:1;min-width:0;font-size:16px;font-weight:700;color:var(--wine);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4}
+.dtBox .dtVal.empty{color:var(--mute);font-weight:500}
+.dtBox .dtPick{position:relative;width:30px;height:30px;flex:none;border-radius:8px;
+  display:grid;place-items:center;color:var(--rose);background:var(--cream);overflow:hidden}
+.dtBox .dtPick svg{width:18px;height:18px}
+.dtBox .dtPick .dtNative{position:absolute;top:0;left:0;width:100%;height:100%;
+  opacity:0;border:0;padding:0;margin:0;background:transparent;
+  min-height:0;font-size:16px;border-radius:0}
+
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .seg{display:flex;gap:6px;flex-wrap:wrap}
