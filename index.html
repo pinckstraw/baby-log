@@ -226,9 +226,17 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 
 .f{margin-bottom:13px}
 .f>label{display:block;font-size:12.5px;font-weight:700;color:var(--wine);margin-bottom:6px}
-.f>label.withVal{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
-.f>label.withVal .labVal{font-size:13px;font-weight:800;color:var(--rose);
-  font-variant-numeric:tabular-nums;white-space:nowrap}
+.dtBox{display:flex;align-items:center;gap:8px;background:#fff;
+  border:1.5px solid var(--line);border-radius:13px;padding:11px 8px 11px 13px}
+.dtBox:active{border-color:var(--rose)}
+.dtVal{flex:1;min-width:0;font-size:16px;font-weight:700;color:var(--wine);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dtVal.empty{color:var(--mute);font-weight:500}
+.dtPick{position:relative;width:30px;height:30px;flex:none;border-radius:8px;
+  display:grid;place-items:center;color:var(--rose);background:var(--cream)}
+.dtPick svg{width:18px;height:18px}
+.dtNative{position:absolute;inset:0;width:100%;height:100%;opacity:0;
+  border:0;padding:0;margin:0;background:transparent}
 
 .in{width:100%;border:1.5px solid var(--line);background:#fff;border-radius:13px;
   padding:12px 13px;outline:none}
@@ -941,19 +949,34 @@ function openTypePicker(){
   });
 }
 
-/* 欄位標題右側顯示目前選到的時間，避免系統選單看不出上下午 */
-function timeField(labelText,inputEl,getIso){
+/* 時間欄位：完整顯示「2026 年 9 月 3 日 上午 6:53」，右側箭頭開啟系統選單 */
+function timeField(labelText,inputEl,getIso,placeholder){
   var f=el('div','f');
-  var lab=el('label','withVal');
-  lab.innerHTML='<span>'+esc(labelText)+'</span><b class="labVal"></b>';
-  f.appendChild(lab); f.appendChild(inputEl);
-  var out=lab.querySelector('.labVal');
+  f.appendChild(el('label',null,esc(labelText)));
+
+  var box=el('div','dtBox');
+  var val=el('div','dtVal');
+  var pick=el('div','dtPick');
+  pick.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
+    'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+  inputEl.classList.add('dtNative');
+  pick.appendChild(inputEl);
+  box.appendChild(val); box.appendChild(pick);
+
+  box.onclick=function(e){
+    if(e.target===inputEl) return;
+    if(inputEl.showPicker){ try{ inputEl.showPicker(); return; }catch(err){} }
+    inputEl.focus();
+  };
+
+  f.appendChild(box);
   f.refresh=function(){
     var v=getIso();
-    if(!v){ out.textContent=''; return; }
+    if(!v){ val.textContent=placeholder||'未設定'; val.classList.add('empty'); return; }
     var d=new Date(v);
-    if(isNaN(d)){ out.textContent=''; return; }
-    out.textContent=(d.getMonth()+1)+'/'+d.getDate()+' '+hhmm(d.toISOString());
+    if(isNaN(d)){ val.textContent=placeholder||'未設定'; val.classList.add('empty'); return; }
+    val.classList.remove('empty');
+    val.textContent=d.getFullYear()+' 年 '+(d.getMonth()+1)+' 月 '+d.getDate()+' 日　'+hhmm(d.toISOString());
   };
   f.refresh();
   return f;
@@ -989,7 +1012,7 @@ function openRecordForm(type,rec){
 
     if(type==='sleep'){
       var t2=input('datetime-local', model.endAt?localInput(new Date(model.endAt)):'');
-      var f2=timeField('起床時間',t2,function(){return model.endAt;});
+      var f2=timeField('起床時間',t2,function(){return model.endAt;},'還在睡');
       f2.appendChild(el('div','bandNote','留空＝還在睡，之後在首頁按「起床」會自動補上。'));
       function syncEnd(){
         if(!t2.value){ model.endAt=null; f2.refresh(); return; }
