@@ -226,6 +226,12 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 
 .f{margin-bottom:13px}
 .f>label{display:block;font-size:12.5px;font-weight:700;color:var(--wine);margin-bottom:6px}
+.dtField{display:flex;flex-direction:column;gap:7px}
+.dtDate{width:100%}
+.dtTime{display:flex;gap:7px}
+.dtSel{flex:1;min-width:0;padding:12px 8px;text-align:center}
+.dtClear{align-self:flex-start;font-size:12.5px;color:var(--rose);font-weight:600;
+  background:var(--cream);border-radius:8px;padding:5px 11px}
 .in{width:100%;border:1.5px solid var(--line);background:#fff;border-radius:13px;
   padding:12px 13px;outline:none}
 .in:focus{border-color:var(--rose)}
@@ -937,6 +943,76 @@ function openTypePicker(){
   });
 }
 
+/* 自訂日期時間選擇器：日期＋上午下午＋時＋分，確保看得到上下午 */
+function dtField(iso,allowEmpty,onChange){
+  var wrap=el('div','dtField');
+  var dIn=el('input','in dtDate'); dIn.type='date';
+  var apSel=el('select','in dtSel');
+  var hSel=el('select','in dtSel');
+  var mSel=el('select','in dtSel');
+
+  ['上午','下午'].forEach(function(t,i){
+    var o=el('option',null,t); o.value=i; apSel.appendChild(o);
+  });
+  function fillHours(){
+    hSel.innerHTML='';
+    if(PREFS.clock12){
+      for(var h=1;h<=12;h++){ var o=el('option',null,h+' 時'); o.value=h; hSel.appendChild(o); }
+    }else{
+      for(var h2=0;h2<24;h2++){ var o2=el('option',null,pad(h2)+' 時'); o2.value=h2; hSel.appendChild(o2); }
+    }
+  }
+  fillHours();
+  for(var m=0;m<60;m++){ var om=el('option',null,pad(m)+' 分'); om.value=m; mSel.appendChild(om); }
+  apSel.style.display=PREFS.clock12?'':'none';
+
+  function setFrom(v){
+    if(!v){ dIn.value=''; return; }
+    var d=new Date(v);
+    if(isNaN(d)) { dIn.value=''; return; }
+    dIn.value=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    var h=d.getHours();
+    if(PREFS.clock12){
+      apSel.value=h<12?0:1;
+      var h12=h%12; if(h12===0)h12=12;
+      hSel.value=h12;
+    }else{
+      hSel.value=h;
+    }
+    mSel.value=d.getMinutes();
+  }
+  function read(){
+    if(!dIn.value) return null;
+    var parts=dIn.value.split('-');
+    var h=parseInt(hSel.value,10);
+    if(PREFS.clock12){
+      var pm=apSel.value==='1';
+      if(h===12) h=0;
+      if(pm) h+=12;
+    }
+    var d=new Date(+parts[0], +parts[1]-1, +parts[2], h, parseInt(mSel.value,10), 0, 0);
+    return d.toISOString();
+  }
+  function fire(){ if(onChange) onChange(read()); }
+  [dIn,apSel,hSel,mSel].forEach(function(x){ x.onchange=fire; x.oninput=fire; });
+
+  wrap.appendChild(dIn);
+  var timeRow=el('div','dtTime');
+  timeRow.appendChild(apSel); timeRow.appendChild(hSel); timeRow.appendChild(mSel);
+  wrap.appendChild(timeRow);
+
+  if(allowEmpty){
+    var clr=el('button','dtClear','清除（還在睡）');
+    clr.type='button';
+    clr.onclick=function(){ dIn.value=''; fire(); };
+    wrap.appendChild(clr);
+  }
+  setFrom(iso);
+  wrap.setValue=setFrom;
+  wrap.readValue=read;
+  return wrap;
+}
+
 function openRecordForm(type,rec){
   var k=kid();
   if(!k){ toast('請先新增寶寶'); return openChildForm(); }
@@ -960,19 +1036,35 @@ function openRecordForm(type,rec){
   };
 
   openSheet((rec?'編輯':'新增')+TYPES[type].lb+' '+TYPES[type].em,function(bd){
-    /* 時間 */
-    var t1=input('datetime-local',localInput(new Date(model.startAt)));
-    t1.oninput=function(){ model.startAt=new Date(t1.value).toISOString(); };
-    bd.appendChild(field(type==='sleep'?'入睡時間':'時間',t1));
+    /* 時間：自訂選擇器，直接顯示上午／下午 */
+    var f2=null;
+    var f1=dtField(model.startAt,false,function(v){
+      if(!v) return;
+      model.startAt=v;
+      if(f2) f2.syncMin();
+    });
+    bd.appendChild(field(type==='sleep'?'入睡時間':'時間',f1));
 
     if(type==='sleep'){
-      var endWrap=el('div');
-      var t2=input('datetime-local', model.endAt?localInput(new Date(model.endAt)):'');
-      t2.oninput=function(){ model.endAt=t2.value?new Date(t2.value).toISOString():null; };
-      endWrap.appendChild(t2);
-      var hint=el('div','bandNote','留空＝還在睡，之後在首頁按「起床」就會自動補上並算出時數。');
-      endWrap.appendChild(hint);
-      bd.appendChild(field('起床時間',endWrap));
+      f2=dtField(model.endAt,true,function(v){
+        if(!v){ model.endAt=null; return; }
+        var st=new Date(model.startAt), e=new Date(v);
+        if(e<=st){                                   /* 早於入睡＝跨夜，自動算隔天 */
+          e=new Date(e.getTime()+86400000);
+          f2.setValue(e.toISOString());
+        }
+        model.endAt=e.toISOString();
+      });
+      f2.syncMin=function(){
+        /* 起床欄位還空著時，日期跟著入睡那天走 */
+        if(!f2.readValue()) return;
+        var e=new Date(f2.readValue()), st=new Date(model.startAt);
+        if(e<=st){ e=new Date(e.getTime()+86400000); f2.setValue(e.toISOString()); model.endAt=e.toISOString(); }
+      };
+      var ew=el('div');
+      ew.appendChild(f2);
+      ew.appendChild(el('div','bandNote','留空＝還在睡，之後在首頁按「起床」會自動補上。'));
+      bd.appendChild(field('起床時間',ew));
     }
 
     if(type==='feed'){
