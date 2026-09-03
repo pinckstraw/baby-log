@@ -231,18 +231,19 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
   padding:12px 13px;outline:none}
 .in:focus{border-color:var(--rose)}
 textarea.in{min-height:46px;resize:none;line-height:1.5;overflow:hidden}
-.dtBox{display:flex;align-items:center;gap:8px;background:#fff;
-  border:1.5px solid var(--line);border-radius:13px;padding:11px 8px 11px 13px}
+.dtBox{position:relative;display:flex;align-items:center;gap:8px;background:#fff;
+  border:1.5px solid var(--line);border-radius:13px;padding:11px 8px 11px 13px;
+  overflow:hidden}
 .dtBox:active{border-color:var(--rose)}
 .dtBox .dtVal{flex:1;min-width:0;font-size:16px;font-weight:700;color:var(--wine);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4}
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5}
 .dtBox .dtVal.empty{color:var(--mute);font-weight:500}
-.dtBox .dtPick{position:relative;width:30px;height:30px;flex:none;border-radius:8px;
-  display:grid;place-items:center;color:var(--rose);background:var(--cream);overflow:hidden}
+.dtBox .dtPick{width:30px;height:30px;flex:none;border-radius:8px;
+  display:grid;place-items:center;color:var(--rose);background:var(--cream)}
 .dtBox .dtPick svg{width:18px;height:18px}
-.dtBox .dtPick .dtNative{position:absolute;top:0;left:0;width:100%;height:100%;
-  opacity:0;border:0;padding:0;margin:0;background:transparent;
-  min-height:0;font-size:16px;border-radius:0}
+.dtBox .dtNative{position:absolute;top:0;left:0;right:0;bottom:0;
+  width:100%;height:100%;opacity:0;z-index:2;
+  border:0;padding:0;margin:0;min-height:0;border-radius:0;background:transparent}
 
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
@@ -962,14 +963,9 @@ function timeField(labelText,inputEl,getIso,placeholder){
   pick.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
     'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
   inputEl.classList.add('dtNative');
-  pick.appendChild(inputEl);
-  box.appendChild(val); box.appendChild(pick);
-
-  box.onclick=function(e){
-    if(e.target===inputEl) return;
-    if(inputEl.showPicker){ try{ inputEl.showPicker(); return; }catch(err){} }
-    inputEl.focus();
-  };
+  box.appendChild(val);
+  box.appendChild(pick);
+  box.appendChild(inputEl);      /* 透明輸入框覆蓋整個欄位，不影響高度 */
 
   f.appendChild(box);
   f.refresh=function(){
