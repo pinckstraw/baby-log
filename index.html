@@ -71,6 +71,8 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
   box-shadow:0 8px 22px rgba(133,14,53,.4);
 }
 #fab:active{transform:scale(.93)}
+#fab.busy{opacity:.45;pointer-events:none}
+#fab.busy:active{transform:none}
 
 /* ---------- generic ---------- */
 .card{background:var(--card);border-radius:18px;padding:14px;margin-bottom:12px;
@@ -729,6 +731,13 @@ function parseData(r){ try{ return r.data?JSON.parse(r.data):{}; }catch(e){ retu
 
 function setSync(state){
   var d=$('#syncDot'); d.className=state||'';
+  /* 同步中先鎖住新增按鈕，避免資料還沒回來就送出 */
+  var fab=$('#fab');
+  if(fab){
+    var busy = state==='busy';
+    fab.classList.toggle('busy',busy);
+    fab.disabled=busy;
+  }
 }
 /* 本機快取：同步失敗或還沒回來時，先顯示上次的資料 */
 function cacheSave(){
