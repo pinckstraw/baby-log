@@ -2970,11 +2970,12 @@ function viewStats(root){
     return gaps.reduce(function(a,b){return a+b;},0)/gaps.length/3600000;
   }
   var aw=awakeAvg();
-  var todaySleepH=daySleepMs(dkey(new Date()))/3600000;
+  var yDay=new Date(); yDay.setDate(yDay.getDate()-1);
+  var yestSleepH=daySleepMs(dkey(yDay))/3600000;
 
   if(hourMetric==='sleep'){
     tiles=[[avgOf('sleep').toFixed(1)+'h','平均睡眠'],
-           [todaySleepH.toFixed(1)+'h','今日總睡眠'],
+           [yestSleepH.toFixed(1)+'h','昨天總睡眠'],
            [aw!=null?aw.toFixed(1)+'h':'—','平均清醒'],
            [maxOf('sleep').toFixed(1)+'h','最長一天']];
   }else if(hourMetric==='feed'){
@@ -2993,7 +2994,7 @@ function viewStats(root){
     tiles=[[avgOf('sleep').toFixed(1)+'h','平均睡眠'],
            [aw!=null?aw.toFixed(1)+'h':'—','平均清醒'],
            [avgOf('poop').toFixed(1),'平均大便'],
-           [todaySleepH.toFixed(1)+'h','今日總睡眠']];
+           [yestSleepH.toFixed(1)+'h','昨天總睡眠']];
   }else{
     tiles=[[avgOf(hourMetric).toFixed(1),'平均次數'],[sumOf(hourMetric),'總次數'],
            [maxOf(hourMetric),'最多一天'],[daysWith(hourMetric)+'/'+nPast,'有紀錄天數']];
