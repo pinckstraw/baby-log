@@ -171,6 +171,11 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
 .st .l{font-size:10.5px;color:var(--mute);margin-top:1px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st.compact{display:flex;align-items:center;justify-content:center;gap:4px;
+  padding:9px 5px;align-self:flex-start}
+.st.compact .ic{font-size:15px;line-height:1}
+.st.compact .v{font-size:16px;line-height:1.2}
+.st.compact .cu{font-size:11.5px;color:var(--mute);font-weight:600}
 
 .tl{position:relative;padding-left:32px}
 .tl:before{content:"";position:absolute;left:11px;top:6px;bottom:6px;width:2px;background:var(--line)}
@@ -453,20 +458,20 @@ var QUICKS = {
 /* 首頁可自訂的統計格 */
 var STATS = {
   sleepToday: {lb:'今日睡眠', em:'🌙', c:'#7C6BB0'},
-  naps:       {lb:'睡眠次數', em:'🌙', c:'#7C6BB0'},
+  naps:       {lb:'睡眠次數', em:'🌙', c:'#7C6BB0', cp:'次'},
   awake:      {lb:'清醒時間', em:'☀️', c:'#E0913C'},
-  feedCount:  {lb:'餵奶次數', em:'🍼', c:'#EE6983'},
-  feedMl:     {lb:'今日奶量', em:'🍼', c:'#EE6983'},
-  breastMin:  {lb:'親餵時間', em:'🤱', c:'#EE6983'},
+  feedCount:  {lb:'餵奶次數', em:'🍼', c:'#EE6983', cp:'次'},
+  feedMl:     {lb:'今日奶量', em:'🍼', c:'#EE6983', cp:''},
+  breastMin:  {lb:'親餵時間', em:'🤱', c:'#EE6983', cp:''},
   lastFeed:   {lb:'距上次餵奶', em:'🍼', c:'#EE6983'},
-  solidCount: {lb:'副食品', em:'🥣', c:'#E0913C'},
-  poopCount:  {lb:'大便次數', em:'💩', c:'#A9784B'},
+  solidCount: {lb:'副食品', em:'🥣', c:'#E0913C', cp:'次'},
+  poopCount:  {lb:'大便次數', em:'💩', c:'#A9784B', cp:'次'},
   lastPoop:   {lb:'距上次大便', em:'💩', c:'#A9784B'},
-  peeCount:   {lb:'尿尿次數', em:'💧', c:'#4C93C4'},
+  peeCount:   {lb:'尿尿次數', em:'💧', c:'#4C93C4', cp:'次'},
   lastPee:    {lb:'距上次尿尿', em:'💧', c:'#4C93C4'},
-  medCount:   {lb:'用藥次數', em:'💊', c:'#4C9AA8'},
+  medCount:   {lb:'用藥次數', em:'💊', c:'#4C9AA8', cp:'次'},
   lastMed:    {lb:'距上次用藥', em:'💊', c:'#4C9AA8'},
-  tempMax:    {lb:'最高體溫', em:'🌡️', c:'#D2523F'},
+  tempMax:    {lb:'最高體溫', em:'🌡️', c:'#D2523F', cp:''},
   lastTemp:   {lb:'距上次量體溫', em:'🌡️', c:'#D2523F'},
   lastFever:  {lb:'距上次發燒', em:'🔥', c:'#D2523F'}
 };
@@ -2211,9 +2216,18 @@ function viewToday(root){
   function statCell(key){
     var def=STATS[key];
     var cell=el('div','st');
-    cell.innerHTML='<div class="ic">'+def.em+'</div>'+
-      '<div class="v" data-stat="'+key+'" style="color:'+def.c+'">'+statValue(key)+'</div>'+
-      '<div class="l">'+def.lb+'</div>';
+    if(def.cp!=null){
+      /* 次數／數值類：一行顯示，例如 💩 1 次 */
+      cell.classList.add('compact');
+      cell.innerHTML='<span class="ic">'+def.em+'</span>'+
+        '<span class="v" data-stat="'+key+'" style="color:'+def.c+'">'+statValue(key)+'</span>'+
+        (def.cp?'<span class="cu">'+def.cp+'</span>':'');
+      cell.title=def.lb;
+    }else{
+      cell.innerHTML='<div class="ic">'+def.em+'</div>'+
+        '<div class="v" data-stat="'+key+'" style="color:'+def.c+'">'+statValue(key)+'</div>'+
+        '<div class="l">'+def.lb+'</div>';
+    }
     return cell;
   }
   /* 第一列固定兩格統計；有計時器就放左邊，兩個計時器則各佔一半 */
