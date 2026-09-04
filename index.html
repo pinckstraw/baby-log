@@ -3011,6 +3011,25 @@ function viewStats(root){
     if(!gaps.length) return null;
     return gaps.reduce(function(a,b){return a+b;},0)/gaps.length/3600000;
   }
+  /* 平均間隔：同一類事件兩次發生之間的平均時間 */
+  /* 各類型的合理間隔上限，超過就當成中間漏記不列入平均 */
+  var GAPMAX={pee:3, poop:36, solid:12, med:12, temp:12, feed:8};
+  function avgGap(type){
+    var limit=(GAPMAX[type]||36)*3600000;
+    var rs=kidRecords().filter(function(r){return r.type===type;})
+      .slice().sort(function(a,b){return new Date(a.startAt)-new Date(b.startAt);});
+    var a0=days[0].d, b0=new Date(days[days.length-1].d.getTime()+86400000);
+    var gaps=[];
+    for(var i=0;i<rs.length-1;i++){
+      var t1=new Date(rs[i].startAt), t2=new Date(rs[i+1].startAt);
+      if(t2<a0 || t2>=b0) continue;          /* 以「後面那筆」是否落在區間內為準 */
+      var g=t2-t1;
+      if(g>0 && g<limit) gaps.push(g);
+    }
+    if(!gaps.length) return null;
+    return gaps.reduce(function(x,y){return x+y;},0)/gaps.length;
+  }
+
   var aw=awakeAvg();
   var yDay=new Date(); yDay.setDate(yDay.getDate()-1);
   var yestSleepH=daySleepMs(dkey(yDay))/3600000;
@@ -3038,8 +3057,10 @@ function viewStats(root){
            [avgOf('poop').toFixed(1),'平均大便'],
            [yestSleepH.toFixed(1)+'h','昨天總睡眠']];
   }else{
+    var gp=avgGap(hourMetric);
     tiles=[[avgOf(hourMetric).toFixed(1),'平均次數'],[sumOf(hourMetric),'總次數'],
-           [maxOf(hourMetric),'最多一天'],[daysWith(hourMetric)+'/'+nPast,'有紀錄天數']];
+           [maxOf(hourMetric),'最多一天'],
+           [gp!=null?agoTight(gp):'—','平均間隔']];
   }
   var sg=el('div','dayStats');
   tiles.forEach(function(t){
