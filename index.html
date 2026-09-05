@@ -205,15 +205,13 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 .ev .who{position:absolute;right:11px;bottom:9px;
   font-size:11px;color:var(--wine);background:var(--cream);
   border-radius:7px;padding:2px 7px;font-weight:600;opacity:.72}
-.ev .body.hasPhoto{display:flex;align-items:center;gap:10px}
-.ev .body.hasPhoto .evMain{flex:1;min-width:0}
-.ev .body.hasPhoto .who{right:74px}
-.ev .thumbWrap{width:56px;height:56px;flex:none;border-radius:10px;
-  background:var(--cream);border:1px solid var(--line);overflow:hidden;
-  display:grid;place-items:center}
+.ev .body.hasPhoto{min-height:78px;padding-right:58px}
+.ev .thumbWrap{position:absolute;top:9px;right:11px;width:40px;height:40px;
+  border-radius:9px;background:var(--cream);border:1px solid var(--line);
+  overflow:hidden;display:grid;place-items:center}
 .ev .thumbWrap img.thumb{width:100%;height:100%;object-fit:cover;display:block}
 .ev .thumbWrap.gone{border-style:dashed;border-color:var(--pink)}
-.ev .thumbGone{font-size:10px;line-height:1.4;color:var(--mute);text-align:center;font-weight:600}
+.ev .thumbGone{font-size:8px;line-height:1.3;color:var(--mute);text-align:center;font-weight:600}
 .daySwipe{transition:transform .18s ease-out,opacity .18s ease-out;
   min-height:62vh;touch-action:pan-y}
 .dateNav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
@@ -2386,12 +2384,8 @@ function viewToday(root){
         : (isRange?'<div class="sub"><span class="tm end">'+hhmm(r.endAt)+'</span></div>':''))+
       (r.note?'<div class="note">'+esc(r.note)+'</div>':'');
     if(r.photoId){
-      /* 照片放右側，卡片高度由文字決定，不會被撐高 */
-      var inner=el('div','evMain');
-      while(body.firstChild) inner.appendChild(body.firstChild);
-      body.appendChild(inner);
+      /* 照片縮小放右上角空白處，不改變卡片結構，也不動記錄者位置 */
       body.classList.add('hasPhoto');
-
       var pw=el('div','thumbWrap');
       var im=el('img','thumb'); im.alt='紀錄照片'; im.loading='lazy';
       pw.appendChild(im);
