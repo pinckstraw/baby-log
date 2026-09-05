@@ -205,7 +205,10 @@ mark{background:#FFE08A;color:var(--ink);border-radius:3px;padding:0 1px}
 .ev .who{position:absolute;right:11px;bottom:9px;
   font-size:11px;color:var(--wine);background:var(--cream);
   border-radius:7px;padding:2px 7px;font-weight:600;opacity:.72}
-.ev .thumbWrap{width:64px;height:64px;border-radius:10px;margin-top:7px;
+.ev .body.hasPhoto{display:flex;align-items:center;gap:10px}
+.ev .body.hasPhoto .evMain{flex:1;min-width:0}
+.ev .body.hasPhoto .who{right:74px}
+.ev .thumbWrap{width:56px;height:56px;flex:none;border-radius:10px;
   background:var(--cream);border:1px solid var(--line);overflow:hidden;
   display:grid;place-items:center}
 .ev .thumbWrap img.thumb{width:100%;height:100%;object-fit:cover;display:block}
@@ -2383,11 +2386,16 @@ function viewToday(root){
         : (isRange?'<div class="sub"><span class="tm end">'+hhmm(r.endAt)+'</span></div>':''))+
       (r.note?'<div class="note">'+esc(r.note)+'</div>':'');
     if(r.photoId){
+      /* 照片放右側，卡片高度由文字決定，不會被撐高 */
+      var inner=el('div','evMain');
+      while(body.firstChild) inner.appendChild(body.firstChild);
+      body.appendChild(inner);
+      body.classList.add('hasPhoto');
+
       var pw=el('div','thumbWrap');
       var im=el('img','thumb'); im.alt='紀錄照片'; im.loading='lazy';
       pw.appendChild(im);
       photoUrl(r.photoId,im,function(){
-        /* 雲端照片已被刪除或讀不到 */
         pw.innerHTML='<span class="thumbGone">🚫<br>已刪除</span>';
         pw.classList.add('gone');
       });
