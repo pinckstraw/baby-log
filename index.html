@@ -1323,6 +1323,11 @@ function openMenu(){
     bd.appendChild(nt);
     bd.appendChild(el('div','bandNote','開啟後「今日」頁會多一顆 🤱 親餵快捷鍵，位置和順序可以在下面的「自訂顯示項目」裡自由調整。'));
 
+    var bR=el('button','btn ghost','💧 尿尿提醒（Email）');
+    bR.style.marginTop='10px';
+    bR.onclick=function(){ closeSheet(); setTimeout(openPeeReminder,180); };
+    bd.appendChild(bR);
+
     var b0=el('button','btn','自訂顯示項目');
     b0.onclick=function(){ closeSheet(); setTimeout(openCustomize,180); };
     bd.appendChild(b0);
@@ -1342,6 +1347,107 @@ function openMenu(){
     bd.appendChild(el('div','bandNote','資料存在你自己的 Google 試算表；照片存在你的 Google 雲端硬碟「育兒日誌照片」資料夾。'));
   });
 }
+function openPeeReminder(){
+  openSheet('尿尿提醒 💧',function(bd){
+    var loading=el('div','bandNote','讀取設定中…');
+    bd.appendChild(loading);
+
+    api({action:'getSettings'}).then(function(j){
+      loading.remove();
+      var st=j.settings||{};
+      var cfg={
+        peeOn: String(st.peeOn||'')==='1',
+        peeMins: parseInt(st.peeMins||'90',10),
+        peeEmail: st.peeEmail||'',
+        peeFrom: parseInt(st.peeFrom!=null?st.peeFrom:7,10),
+        peeTo: parseInt(st.peeTo!=null?st.peeTo:21,10),
+        peeChild: st.peeChild||(kid()?kid().id:'')
+      };
+
+      var tg=el('button','btn ghost','');
+      function paint(){
+        tg.textContent=(cfg.peeOn?'✓ 已開啟':'○ 未開啟')+'　尿尿提醒';
+        tg.style.background=cfg.peeOn?'#FFF1F3':'#fff';
+        tg.style.borderColor=cfg.peeOn?'var(--rose)':'var(--pink)';
+        tg.style.color=cfg.peeOn?'var(--wine)':'var(--mute)';
+      }
+      paint();
+      tg.onclick=function(){ cfg.peeOn=!cfg.peeOn; paint(); };
+      bd.appendChild(tg);
+
+      bd.appendChild(el('div','secTitle','間隔多久提醒'));
+      var mrow=el('div','row2');
+      var mh=input('number',Math.floor(cfg.peeMins/60),'0');
+      var mm=input('number',cfg.peeMins%60,'0');
+      mh.inputMode='numeric'; mm.inputMode='numeric';
+      mh.min='0'; mh.max='23'; mm.min='0'; mm.max='59';
+      var mhint=el('div','bandNote','');
+      function syncMins(){
+        var h=Math.max(0,Math.min(23,parseInt(mh.value,10)||0));
+        var m=Math.max(0,Math.min(59,parseInt(mm.value,10)||0));
+        cfg.peeMins=h*60+m;
+        mhint.textContent = cfg.peeMins>0
+          ? '超過 '+(h?h+' 小時 ':'')+(m?m+' 分':(h?'':'0 分'))+'沒尿尿就寄信提醒'
+          : '請至少設定 1 分鐘';
+      }
+      mh.oninput=syncMins; mm.oninput=syncMins;
+      mrow.appendChild(field('小時',mh));
+      mrow.appendChild(field('分鐘',mm));
+      bd.appendChild(mrow);
+      syncMins();
+      bd.appendChild(mhint);
+      bd.appendChild(el('div','bandNote','從「最後一筆尿尿紀錄」開始計算，每次記錄後自動重新計時。'));
+
+      var em=input('email',cfg.peeEmail,'要收通知的信箱');
+      em.oninput=function(){ cfg.peeEmail=em.value.trim(); };
+      bd.appendChild(field('通知信箱',em));
+
+      bd.appendChild(el('div','secTitle','只在這段時間提醒'));
+      function hourSel(v,on){
+        var sel=el('select','in');
+        for(var h=0;h<24;h++){
+          var o=el('option',null,pad(h)+':00'); o.value=h;
+          if(h===v) o.selected=true;
+          sel.appendChild(o);
+        }
+        sel.onchange=function(){ on(parseInt(sel.value,10)); };
+        return sel;
+      }
+      var hr=el('div','row2');
+      hr.appendChild(field('從',hourSel(cfg.peeFrom,function(v){cfg.peeFrom=v;})));
+      hr.appendChild(field('到',hourSel(cfg.peeTo,function(v){cfg.peeTo=v;})));
+      bd.appendChild(hr);
+      bd.appendChild(el('div','bandNote','避免半夜寄信吵醒你。另外只要寶寶正在睡覺（睡眠紀錄還沒按起床，或現在落在某段睡眠時間內），也會自動暫停提醒。'));
+
+      var save=el('button','btn','儲存設定');
+      save.onclick=function(){
+        if(cfg.peeOn && !cfg.peeEmail){ toast('請先填收通知的信箱'); return; }
+        if(cfg.peeOn && cfg.peeMins<1){ toast('間隔請至少設定 1 分鐘'); return; }
+        save.disabled=true; save.textContent='儲存中…';
+        api({action:'saveSettings',settings:{
+          peeOn: cfg.peeOn?'1':'0',
+          peeMins: String(cfg.peeMins),
+          peeEmail: cfg.peeEmail,
+          peeFrom: String(cfg.peeFrom),
+          peeTo: String(cfg.peeTo),
+          peeChild: cfg.peeChild
+        }}).then(function(){
+          closeSheet();
+          toast(cfg.peeOn?'已開啟，超過時間會寄信提醒':'已關閉提醒');
+        }).catch(function(e){
+          save.disabled=false; save.textContent='再試一次';
+          toast('儲存失敗：'+e.message);
+        });
+      };
+      bd.appendChild(save);
+      bd.appendChild(el('div','bandNote','提醒由 Google Apps Script 每 10 分鐘檢查一次，需先在 Apps Script 建立時間觸發器（見設定教學）。'));
+    }).catch(function(e){
+      loading.textContent='讀取失敗：'+e.message+'（Code.gs 可能需要重新部署）';
+    });
+  });
+}
+
+function openPeeReminderStub(){}
 function openCustomize(){
   openSheet('自訂顯示項目',function(bd){
     bd.appendChild(el('div','bandNote','勾選要顯示的項目，順序就是你點選的順序。這份設定只影響這台裝置，每個人可以各自設定。'));
