@@ -1475,8 +1475,15 @@ function openWatch(){
       urlBox.appendChild(urlTxt);
       bd.appendChild(urlBox);
 
+      function b64(str){
+        /* 支援中文：先轉 UTF-8 再 Base64，網址裡只會有英數字 */
+        try{
+          return btoa(String.fromCharCode.apply(null,
+            Array.prototype.slice.call(new TextEncoder().encode(str))));
+        }catch(e){ return btoa(unescape(encodeURIComponent(str))); }
+      }
       function watchUrl(){
-        return CFG.url+'?watch=1&secret='+encodeURIComponent(CFG.secret)+
+        return CFG.url+'?watch=1&k='+encodeURIComponent(b64(CFG.secret))+
           '&by='+encodeURIComponent(who.value.trim()||'手錶');
       }
       function refreshUrl(){ urlTxt.textContent=watchUrl(); }
