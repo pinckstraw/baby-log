@@ -1357,6 +1357,11 @@ var WATCH_BTNS={
   pee:{lb:'💧 尿尿'}, poop:{lb:'💩 大便'}, sleep:{lb:'🌙 開始睡'}, wake:{lb:'☀ 起床了'},
   feed:{lb:'🍼 餵奶'}, solid:{lb:'🥣 副食品'}, med:{lb:'💊 用藥'}, temp:{lb:'🌡 體溫'}
 };
+var WATCH_STATS={
+  pee:{lb:'💧 距上次尿尿'}, poop:{lb:'💩 距上次大便'}, sleep:{lb:'🌙 距上次睡眠'},
+  feed:{lb:'🍼 距上次餵奶'}, med:{lb:'💊 距上次用藥'}, temp:{lb:'🌡 距上次量體溫'},
+  awake:{lb:'☀ 清醒時間'}
+};
 function openWatch(){
   openSheet('手錶捷徑 ⌚',function(bd){
     var loading=el('div','bandNote','讀取設定中…');
@@ -1364,39 +1369,99 @@ function openWatch(){
 
     api({action:'getSettings'}).then(function(j){
       loading.remove();
-      var picked=String((j.settings||{}).watchBtns||'pee,poop,sleep,wake')
+      var st0=j.settings||{};
+      var picked=String(st0.watchBtns||'pee,poop,sleep,wake')
         .split(',').map(function(x){return x.trim();})
         .filter(function(x){return WATCH_BTNS[x];});
+      var pickedSt=String(st0.watchStats||'pee,poop')
+        .split(',').map(function(x){return x.trim();})
+        .filter(function(x){return WATCH_STATS[x];});
+
+      /* 共用清單：已選可拖曳排序，未選點一下加入 */
+      function checkList(defs,list){
+        var wrap=el('div','card');
+        var onList=el('div','sortList');
+        var offList=el('div','sortList off');
+        var offTitle=el('div','bandNote','');
+        function build(){
+          onList.innerHTML=''; offList.innerHTML='';
+          list.forEach(function(k){
+            if(!defs[k]) return;
+            var row=el('div','sortRow');
+            row.dataset.k=k;
+            row.innerHTML='<span class="grip">≡</span>'+
+              '<span class="rowLb">'+defs[k].lb+'</span>';
+            var rm=el('button','rowBtn del','✕');
+            rm.onclick=function(){
+              var i=list.indexOf(k);
+              if(i>=0) list.splice(i,1);
+              build();
+              if(typeof refreshUrl==='function') refreshUrl();
+            };
+            row.appendChild(rm);
+            onList.appendChild(row);
+          });
+          var offKeys=Object.keys(defs).filter(function(k){return list.indexOf(k)<0;});
+          offKeys.forEach(function(k){
+            var row=el('div','sortRow');
+            row.innerHTML='<span class="grip ghost">＋</span>'+
+              '<span class="rowLb">'+defs[k].lb+'</span>';
+            row.onclick=function(){
+              list.push(k); build();
+              if(typeof refreshUrl==='function') refreshUrl();
+            };
+            offList.appendChild(row);
+          });
+          offTitle.textContent=offKeys.length?'點一下加入：':'';
+          offList.style.display=offKeys.length?'':'none';
+        }
+
+        var drag=null;
+        onList.addEventListener('touchstart',function(e){
+          var g=e.target.closest && e.target.closest('.grip');
+          if(!g) return;
+          drag=g.closest('.sortRow');
+          if(drag) drag.classList.add('dragging');
+        },{passive:true});
+        onList.addEventListener('touchmove',function(e){
+          if(!drag) return;
+          e.preventDefault();
+          var t=e.touches[0];
+          var el2=document.elementFromPoint(t.clientX,t.clientY);
+          var over=el2 && el2.closest ? el2.closest('.sortRow') : null;
+          if(!over || over===drag || over.parentNode!==onList) return;
+          var rows=Array.prototype.slice.call(onList.children);
+          if(rows.indexOf(over)<rows.indexOf(drag)) onList.insertBefore(drag,over);
+          else onList.insertBefore(drag,over.nextSibling);
+        },{passive:false});
+        function endDrag(){
+          if(!drag) return;
+          drag.classList.remove('dragging');
+          drag=null;
+          var order=Array.prototype.slice.call(onList.children).map(function(r){return r.dataset.k;});
+          list.length=0; order.forEach(function(k){ list.push(k); });
+          build();
+          if(typeof refreshUrl==='function') refreshUrl();
+        }
+        onList.addEventListener('touchend',endDrag,{passive:true});
+        onList.addEventListener('touchcancel',endDrag,{passive:true});
+
+        wrap.appendChild(onList);
+        wrap.appendChild(offTitle);
+        wrap.appendChild(offList);
+        build();
+        return wrap;
+      }
 
       bd.appendChild(el('div','bandNote',
         '手錶的瀏覽器不支援一般網頁，這是專用的簡化版。在手機瀏覽器打開下面的網址並加入書籤，書籤同步到手錶後點一下就能記錄，不用再輸入通關密語。'));
 
-      bd.appendChild(el('div','secTitle','手錶上要顯示的按鈕'));
-      var card=el('div','card');
-      Object.keys(WATCH_BTNS).forEach(function(k,i){
-        var on=picked.indexOf(k)>=0;
-        var row=el('button',null,'');
-        row.style.cssText='display:flex;align-items:center;gap:10px;width:100%;text-align:left;'+
-          'padding:11px 2px;'+(i?'border-top:1px solid var(--line)':'');
-        row.innerHTML='<span class="wbox">'+(on?'✓':'')+'</span>'+
-          '<span style="flex:1;font-size:14.5px;font-weight:600;color:var(--wine)">'+
-          WATCH_BTNS[k].lb+'</span>';
-        var box=row.querySelector('.wbox');
-        box.style.cssText='width:22px;height:22px;border-radius:7px;display:grid;place-items:center;'+
-          'font-size:12px;font-weight:800;color:#fff;flex:none;border:2px solid '+
-          (on?'var(--rose);background:var(--rose)':'var(--pink);background:transparent');
-        row.onclick=function(){
-          var idx=picked.indexOf(k);
-          if(idx>=0) picked.splice(idx,1); else picked.push(k);
-          var nowOn=picked.indexOf(k)>=0;
-          box.textContent=nowOn?'✓':'';
-          box.style.borderColor=nowOn?'var(--rose)':'var(--pink)';
-          box.style.background=nowOn?'var(--rose)':'transparent';
-          refreshUrl();
-        };
-        card.appendChild(row);
-      });
-      bd.appendChild(card);
+      bd.appendChild(el('div','secTitle','上半部：距上次多久'));
+      bd.appendChild(checkList(WATCH_STATS,pickedSt));
+      bd.appendChild(el('div','bandNote','手錶螢幕小，建議 2 到 3 項就好。'));
+
+      bd.appendChild(el('div','secTitle','下半部：記錄按鈕'));
+      bd.appendChild(checkList(WATCH_BTNS,picked));
 
       bd.appendChild(el('div','secTitle','紀錄要顯示誰'));
       var who=input('text',CFG.who,'例如 媽媽');
@@ -1432,11 +1497,13 @@ function openWatch(){
       open.onclick=function(){ window.open(watchUrl(),'_blank'); };
       bd.appendChild(open);
 
-      var save=el('button','btn ghost','儲存按鈕設定');
+      var save=el('button','btn ghost','儲存手錶設定');
       save.style.marginTop='10px';
       save.onclick=function(){
         save.disabled=true; save.textContent='儲存中…';
-        api({action:'saveSettings',settings:{watchBtns:picked.join(',')}})
+        api({action:'saveSettings',settings:{
+          watchBtns:picked.join(','), watchStats:pickedSt.join(',')
+        }})
           .then(function(){ closeSheet(); toast('已儲存，手錶重新整理就會更新'); })
           .catch(function(e){ save.disabled=false; save.textContent='再試一次'; toast('失敗：'+e.message); });
       };
