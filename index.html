@@ -1323,6 +1323,11 @@ function openMenu(){
     bd.appendChild(nt);
     bd.appendChild(el('div','bandNote','開啟後「今日」頁會多一顆 🤱 親餵快捷鍵，位置和順序可以在下面的「自訂顯示項目」裡自由調整。'));
 
+    var bW=el('button','btn ghost','⌚ 手錶捷徑');
+    bW.style.marginTop='10px';
+    bW.onclick=function(){ closeSheet(); setTimeout(openWatch,180); };
+    bd.appendChild(bW);
+
     var bR=el('button','btn ghost','💧 尿尿提醒（Email）');
     bR.style.marginTop='10px';
     bR.onclick=function(){ closeSheet(); setTimeout(openPeeReminder,180); };
@@ -1347,6 +1352,101 @@ function openMenu(){
     bd.appendChild(el('div','bandNote','資料存在你自己的 Google 試算表；照片存在你的 Google 雲端硬碟「育兒日誌照片」資料夾。'));
   });
 }
+/* 手錶捷徑：產生不需登入的純 HTML 網址，並可設定要顯示哪些按鈕 */
+var WATCH_BTNS={
+  pee:{lb:'💧 尿尿'}, poop:{lb:'💩 大便'}, sleep:{lb:'🌙 開始睡'}, wake:{lb:'☀ 起床了'},
+  feed:{lb:'🍼 餵奶'}, solid:{lb:'🥣 副食品'}, med:{lb:'💊 用藥'}, temp:{lb:'🌡 體溫'}
+};
+function openWatch(){
+  openSheet('手錶捷徑 ⌚',function(bd){
+    var loading=el('div','bandNote','讀取設定中…');
+    bd.appendChild(loading);
+
+    api({action:'getSettings'}).then(function(j){
+      loading.remove();
+      var picked=String((j.settings||{}).watchBtns||'pee,poop,sleep,wake')
+        .split(',').map(function(x){return x.trim();})
+        .filter(function(x){return WATCH_BTNS[x];});
+
+      bd.appendChild(el('div','bandNote',
+        '手錶的瀏覽器不支援一般網頁，這是專用的簡化版。在手機瀏覽器打開下面的網址並加入書籤，書籤同步到手錶後點一下就能記錄，不用再輸入通關密語。'));
+
+      bd.appendChild(el('div','secTitle','手錶上要顯示的按鈕'));
+      var card=el('div','card');
+      Object.keys(WATCH_BTNS).forEach(function(k,i){
+        var on=picked.indexOf(k)>=0;
+        var row=el('button',null,'');
+        row.style.cssText='display:flex;align-items:center;gap:10px;width:100%;text-align:left;'+
+          'padding:11px 2px;'+(i?'border-top:1px solid var(--line)':'');
+        row.innerHTML='<span class="wbox">'+(on?'✓':'')+'</span>'+
+          '<span style="flex:1;font-size:14.5px;font-weight:600;color:var(--wine)">'+
+          WATCH_BTNS[k].lb+'</span>';
+        var box=row.querySelector('.wbox');
+        box.style.cssText='width:22px;height:22px;border-radius:7px;display:grid;place-items:center;'+
+          'font-size:12px;font-weight:800;color:#fff;flex:none;border:2px solid '+
+          (on?'var(--rose);background:var(--rose)':'var(--pink);background:transparent');
+        row.onclick=function(){
+          var idx=picked.indexOf(k);
+          if(idx>=0) picked.splice(idx,1); else picked.push(k);
+          var nowOn=picked.indexOf(k)>=0;
+          box.textContent=nowOn?'✓':'';
+          box.style.borderColor=nowOn?'var(--rose)':'var(--pink)';
+          box.style.background=nowOn?'var(--rose)':'transparent';
+          refreshUrl();
+        };
+        card.appendChild(row);
+      });
+      bd.appendChild(card);
+
+      bd.appendChild(el('div','secTitle','紀錄要顯示誰'));
+      var who=input('text',CFG.who,'例如 媽媽');
+      who.oninput=refreshUrl;
+      bd.appendChild(field(null,who));
+
+      bd.appendChild(el('div','secTitle','手錶網址'));
+      var urlBox=el('div','card');
+      var urlTxt=el('div','');
+      urlTxt.style.cssText='font-size:11.5px;color:var(--wine);word-break:break-all;line-height:1.5';
+      urlBox.appendChild(urlTxt);
+      bd.appendChild(urlBox);
+
+      function watchUrl(){
+        return CFG.url+'?watch=1&secret='+encodeURIComponent(CFG.secret)+
+          '&by='+encodeURIComponent(who.value.trim()||'手錶');
+      }
+      function refreshUrl(){ urlTxt.textContent=watchUrl(); }
+      refreshUrl();
+
+      var copy=el('button','btn','複製網址');
+      copy.onclick=function(){
+        var u=watchUrl();
+        if(navigator.clipboard&&navigator.clipboard.writeText){
+          navigator.clipboard.writeText(u).then(function(){toast('已複製，貼到瀏覽器後加入書籤');},
+            function(){toast('複製失敗，請長按網址手動複製');});
+        }else toast('請長按上面的網址手動複製');
+      };
+      bd.appendChild(copy);
+
+      var open=el('button','btn ghost','直接開啟（可加入書籤）');
+      open.style.marginTop='10px';
+      open.onclick=function(){ window.open(watchUrl(),'_blank'); };
+      bd.appendChild(open);
+
+      var save=el('button','btn ghost','儲存按鈕設定');
+      save.style.marginTop='10px';
+      save.onclick=function(){
+        save.disabled=true; save.textContent='儲存中…';
+        api({action:'saveSettings',settings:{watchBtns:picked.join(',')}})
+          .then(function(){ closeSheet(); toast('已儲存，手錶重新整理就會更新'); })
+          .catch(function(e){ save.disabled=false; save.textContent='再試一次'; toast('失敗：'+e.message); });
+      };
+      bd.appendChild(save);
+    }).catch(function(e){
+      loading.textContent='讀取失敗：'+e.message+'（Code.gs 需要更新並重新部署）';
+    });
+  });
+}
+
 function openPeeReminder(){
   openSheet('尿尿提醒 💧',function(bd){
     var loading=el('div','bandNote','讀取設定中…');
