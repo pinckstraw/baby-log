@@ -435,7 +435,7 @@ var TYPES = {
   solid:   {em:'🥣', lb:'副食品', color:'#E0913C'},
   poop:    {em:'💩', lb:'大便',   color:'#A9784B'},
   pee:     {em:'💧', lb:'尿尿',   color:'#4C93C4'},
-  med:     {em:'💊', lb:'用藥',   color:'#4C9AA8'},
+  med:     {em:'💊', lb:'用藥',   color:'#2F7D4A'},
   temp:    {em:'🌡️', lb:'體溫',   color:'#D2523F'},
   growth:  {em:'📏', lb:'身高體重',color:'#5B8C5A'},
   dental:  {em:'🦷', lb:'看牙齒', color:'#4F7FBF'},
@@ -470,8 +470,8 @@ var STATS = {
   lastPoop:   {lb:'距上次大便', em:'💩', c:'#A9784B'},
   peeCount:   {lb:'尿尿次數', em:'💧', c:'#4C93C4', cp:'次'},
   lastPee:    {lb:'距上次尿尿', em:'💧', c:'#4C93C4'},
-  medCount:   {lb:'用藥次數', em:'💊', c:'#4C9AA8', cp:'次'},
-  lastMed:    {lb:'距上次用藥', em:'💊', c:'#4C9AA8'},
+  medCount:   {lb:'用藥次數', em:'💊', c:'#2F7D4A', cp:'次'},
+  lastMed:    {lb:'距上次用藥', em:'💊', c:'#2F7D4A'},
   tempMax:    {lb:'最高體溫', em:'🌡️', c:'#D2523F', cp:''},
   lastTemp:   {lb:'距上次量體溫', em:'🌡️', c:'#D2523F'},
   lastFever:  {lb:'距上次發燒', em:'🔥', c:'#D2523F'}
@@ -3429,7 +3429,7 @@ function viewStats(root){
   }
 
   if(hourMetric!=='sleep'){
-    var COLS={feed:'#EE6983',poop:'#A9784B',pee:'#4C93C4',solid:'#E0913C',med:'#4C9AA8',
+    var COLS={feed:'#EE6983',poop:'#A9784B',pee:'#4C93C4',solid:'#E0913C',med:'#2F7D4A',
               temp:'#D2523F',dental:'#4F7FBF',vaccine:'#8A6FBF',growth:'#5B8C5A'};
     var sz=Math.max(3.5,Math.min(7,colW*0.45));
     /* 依日期分組，時間相近的並排錯開，避免圖示疊在一起 */
@@ -3481,7 +3481,7 @@ function viewStats(root){
   hc.appendChild(hbox);
   if(count && showAllTypes && picked.length>1){
     var LEGC={sleep:'#7C6BB0',feed:'#EE6983',solid:'#E0913C',poop:'#A9784B',pee:'#4C93C4',
-              med:'#4C9AA8',temp:'#D2523F'};
+              med:'#2F7D4A',temp:'#D2523F'};
     var lgd=el('div','legend');
     lgd.innerHTML=picked.map(function(k){
       return '<span><i style="background:'+(LEGC[k]||'#850E35')+'"></i>'+STAT_TYPES[k].lb+'</span>';
