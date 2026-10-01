@@ -3544,10 +3544,14 @@ function viewStats(root){
   var bdef=BARDEF[hourMetric]||BARDEF.all;
   bars(bdef.f, bdef.fmt, bdef.unit||'', bdef.lb);
 
-  /* 用藥與體溫摘要 */
+  /* 用藥與體溫摘要：只在「全部」或對應類別時顯示，並限定在目前區間內 */
   var since=new Date(days[0].d);
-  var meds=kidRecords().filter(function(r){return r.type==='med' && new Date(r.startAt)>=since;});
-  var temps=kidRecords().filter(function(r){return r.type==='temp' && new Date(r.startAt)>=since;});
+  var until=new Date(days[days.length-1].d.getTime()+86400000);
+  function inRange(r){ var t=new Date(r.startAt); return t>=since && t<until; }
+  var showMed  = hourMetric==='all' || hourMetric==='med';
+  var showTemp = hourMetric==='all' || hourMetric==='temp';
+  var meds = showMed  ? kidRecords().filter(function(r){return r.type==='med'  && inRange(r);}) : [];
+  var temps= showTemp ? kidRecords().filter(function(r){return r.type==='temp' && inRange(r);}) : [];
   if(temps.length){
     root.appendChild(el('div','secTitle','體溫'));
     var tc=el('div','card');
